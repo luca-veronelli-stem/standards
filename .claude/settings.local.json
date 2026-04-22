@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/lucav/**)",
+      "Read(//c/Users/lucav/.claude/**)",
+      "PowerShell(Get-Command *)",
+      "PowerShell(Test-Path *)",
+      "Bash(git -C /c/Users/lucav/source/repos/llm-settings-main config --get user.email)",
+      "Bash(git -C /c/Users/lucav/source/repos/llm-settings-main config --get user.name)",
+      "Bash(git config *)",
+      "Bash(git init *)",
+      "Bash(git add *)",
+      "Bash(git commit -m 'chore: initial import — personalized from paolino/llm-settings for STEM / .NET on Windows *)"
+    ]
+  }
+}
