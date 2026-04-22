@@ -124,5 +124,5 @@ After each answer, show relevant links so Luca can verify you understood:
 ## Notes
 
 - Keep the interview fast. Don't over-ask.
-- Title in English (conventional-commits style); body can be Italian if the rest of the repo uses Italian.
+- Title and body in **English** (title in conventional-commits style). Switch to Italian only on explicit request.
 - Body should be scannable, not verbose.

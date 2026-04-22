@@ -9,7 +9,7 @@ paths:
 
 # .NET coding rules (STEM style)
 
-**Language split.** Code identifiers (classes, methods, variables, enums, filenames) in **English**. Documentation (XML comments, markdown, GUI strings, commit bodies, inline comments, CHANGELOG entries) in **Italian**.
+**Language.** Everything in **English** by default — code identifiers, XML comments, markdown, GUI strings, commit bodies, inline comments, CHANGELOG entries. Switch to Italian only on explicit request for a specific artifact.
 
 **Nullability.** `Nullable=enable` everywhere. Never return `null` to signal failure — throw a typed exception or use a discriminated result. Methods that *can* legitimately return nothing use `T?`.
 
