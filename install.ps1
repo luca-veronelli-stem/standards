@@ -131,8 +131,14 @@ if (-not $SkipPrereqs) {
         if (-not (Test-Command 'elan')) {
             Write-Host "  installing elan (Lean toolchain)" -ForegroundColor DarkGray
             try {
-                $script = Invoke-WebRequest -Uri 'https://elan.lean-lang.org/elan-init.ps1' -UseBasicParsing
-                Invoke-Expression $script.Content
+                $resp = Invoke-WebRequest -Uri 'https://elan.lean-lang.org/elan-init.ps1' -UseBasicParsing
+                $elanScript = $resp.Content
+                # PS 5.1 with -UseBasicParsing can hand back a byte[] when the
+                # response has no declared charset. Decode to string for IEX.
+                if ($elanScript -is [byte[]]) {
+                    $elanScript = [System.Text.Encoding]::UTF8.GetString($elanScript)
+                }
+                Invoke-Expression -Command $elanScript
                 Refresh-Path
             } catch {
                 Write-Warning "    elan install failed - $($_.Exception.Message). Install manually from https://lean-lang.org"

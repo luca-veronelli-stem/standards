@@ -10,7 +10,14 @@
       "Bash(git config *)",
       "Bash(git init *)",
       "Bash(git add *)",
-      "Bash(git commit -m 'chore: initial import — personalized from paolino/llm-settings for STEM / .NET on Windows *)"
+      "Bash(git commit -m 'chore: initial import — personalized from paolino/llm-settings for STEM / .NET on Windows *)",
+      "PowerShell(\"--- old memory contents ---\")",
+      "PowerShell(\"--- new memory contents ---\")",
+      "Bash(git commit -m 'fix: save install.ps1 as UTF-8 BOM and replace em-dashes *)",
+      "PowerShell(& \"C:\\\\Users\\\\lucav\\\\source\\\\repos\\\\llm-settings\\\\install.ps1\" -SkipPrereqs -SkipLean)",
+      "PowerShell(Join-Path *)",
+      "Bash(git commit -m 'fix: wrap npx MCP commands in cmd /c for Windows *)",
+      "Bash(git commit -m 'fix: decode elan-init response bytes on PS 5.1 *)"
     ]
   }
 }
