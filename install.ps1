@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Install Luca's llm-settings into the current Windows user profile.
 
@@ -7,7 +7,7 @@
     server definitions into %USERPROFILE%\.claude.json, and (optionally)
     installs prerequisite tooling via winget.
 
-    Designed for Windows PowerShell 5.1 — works under pwsh too.
+    Designed for Windows PowerShell 5.1 - works under pwsh too.
 
 .PARAMETER SkipPrereqs
     Skip the winget / pip / elan install phase. Use this on re-runs or when
@@ -126,7 +126,7 @@ if (-not $SkipPrereqs) {
         Refresh-Path
     } else { Write-Host "  uv/uvx: already installed" }
 
-    # elan (Lean toolchain) — only if requested
+    # elan (Lean toolchain) - only if requested
     if (-not $SkipLean) {
         if (-not (Test-Command 'elan')) {
             Write-Host "  installing elan (Lean toolchain)" -ForegroundColor DarkGray
@@ -135,7 +135,7 @@ if (-not $SkipPrereqs) {
                 Invoke-Expression $script.Content
                 Refresh-Path
             } catch {
-                Write-Warning "    elan install failed — $($_.Exception.Message). Install manually from https://lean-lang.org"
+                Write-Warning "    elan install failed - $($_.Exception.Message). Install manually from https://lean-lang.org"
             }
         } else { Write-Host "  elan: already installed" }
     }
