@@ -9,46 +9,43 @@ STEM repos follow a consistent shape. This skill captures the conventions — us
 
 ## Language rule
 
-- Code identifiers (class/method/variable/enum names) in **English**.
-- Every other piece of documentation — README, XML docs, markdown in `Docs/`, CHANGELOG, inline comments, GUI strings, commit bodies — in **Italian**.
+Everything in **English** by default — README, XML docs, markdown in `Docs/`, CHANGELOG, inline comments, GUI strings, commit summaries and bodies. Switch to Italian only when Luca explicitly asks for it on a specific artifact (e.g. "put these GUI strings in Italian for the end users").
 
-Commit summaries follow conventional-commits in English (`feat:`, `fix:`); the body can switch to Italian.
+Commit summaries follow conventional-commits (`feat:`, `fix:`, …); body, if present, is English.
 
 ## Top-level README
-
-Structure (Italian body, English code fences/commands):
 
 ```markdown
 # <Repo name>
 
 [![.NET](https://img.shields.io/badge/.NET-10.0-512BD4)](https://dotnet.microsoft.com/)
 [![Tests](https://img.shields.io/badge/tests-N-brightgreen)](./Tests/)
-[![License](https://img.shields.io/badge/license-Proprietary-red)](#licenza)
+[![License](https://img.shields.io/badge/license-Proprietary-red)](#license)
 
-> **Applicativo ... per ...**
-> **Ultimo aggiornamento:** YYYY-MM-DD
+> **<Application> for <purpose>.**
+> **Last updated:** YYYY-MM-DD
 
 ---
 
-## Panoramica
+## Overview
 
-<1–3 paragraphs: cosa fa, per chi, perché.>
+<1–3 paragraphs: what it does, who it's for, why.>
 
-## Caratteristiche
+## Features
 
-| Feature | Stato | Descrizione |
-|---------|-------|-------------|
+| Feature | Status | Description |
+|---------|--------|-------------|
 | ... | ✅ | ... |
 
-## Requisiti
+## Requirements
 
 - **.NET 10.0** ...
 - **Visual Studio 2022+** ...
 
-### Dipendenze
+### Dependencies
 
-| Package | Versione | Uso |
-|---------|----------|-----|
+| Package | Version | Use |
+|---------|---------|-----|
 
 ## Quick Start
 
@@ -58,22 +55,22 @@ dotnet test
 dotnet run --project GUI.Windows/GUI.Windows.csproj
 ```
 
-## Struttura Soluzione
+## Solution Structure
 
 <tree>
 
-## Documentazione
+## Documentation
 
 - link to subproject READMEs
 - link to `Docs/`
 - link to CHANGELOG
 
-## Licenza
+## License
 
-- **Proprietario:** STEM E.m.s.
-- **Autore:** <name>
-- **Data di Creazione:** YYYY-MM-DD
-- **Licenza:** Proprietaria - Tutti i diritti riservati
+- **Owner:** STEM E.m.s.
+- **Author:** <name>
+- **Creation Date:** YYYY-MM-DD
+- **License:** Proprietary — All rights reserved
 ```
 
 ## Per-subproject README
@@ -93,21 +90,21 @@ On every public type and member:
 
 ```csharp
 /// <summary>
-/// Decodifica un pacchetto STEM applicando CRC16 e chunking inverso.
+/// Decodes a STEM packet by applying CRC16 validation and reverse chunking.
 /// </summary>
-/// <param name="raw">Pacchetto grezzo ricevuto dal canale.</param>
-/// <param name="cancellationToken">Token di cancellazione della richiesta.</param>
-/// <returns>Il <see cref="AppLayerDecodedEvent"/> risultante, o <c>null</c> se il pacchetto è incompleto.</returns>
-/// <exception cref="CrcMismatchException">Se il CRC non corrisponde.</exception>
+/// <param name="raw">The raw packet received from the channel.</param>
+/// <param name="cancellationToken">Cancellation token for the request.</param>
+/// <returns>The resulting <see cref="AppLayerDecodedEvent"/>, or <c>null</c> if the packet is incomplete.</returns>
+/// <exception cref="CrcMismatchException">Thrown when the CRC does not match.</exception>
 ```
 
-Required tags: `<summary>`, `<param>` for each parameter, `<returns>` when non-`void`, `<exception>` for each documented throw. Italian prose. Use `<see cref="...">` and `<paramref name="...">` for cross-references.
+Required tags: `<summary>`, `<param>` for each parameter, `<returns>` when non-`void`, `<exception>` for each documented throw. English prose. Use `<see cref="...">` and `<paramref name="...">` for cross-references.
 
 Private members don't need XML docs unless the logic is non-obvious.
 
 ## CHANGELOG
 
-Follows [Keep a Changelog](https://keepachangelog.com/) format, Italian prose.
+Follows [Keep a Changelog](https://keepachangelog.com/) format, English prose.
 
 ```markdown
 # Changelog
@@ -115,10 +112,10 @@ Follows [Keep a Changelog](https://keepachangelog.com/) format, Italian prose.
 ## [Unreleased]
 
 ### Added
-- Nuovo canale BLE per la telemetria fast.
+- New BLE channel for fast telemetry.
 
 ### Changed
-- Refactor di `Form1` in `ConnectionManager`.
+- Refactored `Form1` into `ConnectionManager`.
 
 ### Fixed
 - Race condition in `TelemetryService.StartFastTelemetryAsync`.
@@ -137,7 +134,7 @@ Non-trivial repos have a `Docs/` directory with deeper technical documents:
 - `Standards/*.md` — reusable standards (THREAD_SAFETY, CANCELLATION, LOGGING, …).
 - `Diagrams/*.puml` — PlantUML sources for sequence / state / class diagrams.
 
-Reference them from the top-level README's "Documentazione" section.
+Reference them from the top-level README's "Documentation" section.
 
 ## Links in documentation
 

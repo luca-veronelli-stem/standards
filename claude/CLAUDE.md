@@ -9,13 +9,13 @@ Platform: **Windows 11, PowerShell 5.1 primary** (PowerShell 7 also available on
 Luca is a .NET 10 / C# developer at **STEM E.m.s.** (embedded industrial devices). Primary stack today: WinForms + WPF desktop apps, xUnit (dual TFM `net10.0` + `net10.0-windows`), EF Core + SQLite, Azure Table Storage + Azure Artifacts, embedded comm over BLE/CAN/Serial. Future direction: cross-platform .NET.
 
 **Conventions to respect in every work repo:**
-- Code/identifiers in **English**; documentation (XML comments, markdown, GUI strings) in **Italian**.
+- Everything in **English** by default: code/identifiers, XML comments, markdown docs, GUI strings, commit bodies, PR descriptions, CHANGELOG entries. Switch to Italian only when Luca explicitly asks for it on a given artifact.
 - Pragmatic C#: manual DI in composition root, interfaces only where they earn their keep, no mocking libraries (manual fakes), `Nullable=enable` enabled everywhere, exceptions not `null` returns.
 - Short functions (<15 LOC), early returns, 100–110 soft / 120 hard column limit.
 - xUnit test naming: `{ClassName}Tests` + `{Method}_{Scenario}_{ExpectedResult}`.
 - Lean 4 formalization track: state → actions → predicates → preservation theorems, in `Specs/PhaseN/`. Lean spec → xUnit test → C# impl, in that order.
 
-**How Claude should talk to Luca:** in **English**. Generated artifacts inside work repos (PR descriptions, commit bodies, XML docstrings, GUI strings, CHANGELOG entries) should be in **Italian** to match the repo's existing content. Commit summaries in English (conventional commits style: `feat:`, `fix:`, …) — body in Italian.
+**How Claude should talk to Luca:** in **English**. Generated artifacts are English by default — commit summaries (conventional commits: `feat:`, `fix:`, …), commit bodies, PR titles/descriptions, XML docstrings, GUI strings, CHANGELOG entries, inline comments. Only switch to Italian when Luca explicitly asks for it on a specific artifact (e.g. "put the GUI strings in Italian").
 
 ## Dual-remote workflow
 

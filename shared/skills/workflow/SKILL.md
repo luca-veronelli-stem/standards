@@ -67,7 +67,7 @@ test: add integration tests for BootService
 ```
 
 - Lowercase after colon, imperative mood, present tense.
-- Summary in English. Body (if any) in Italian, matching the repo's convention.
+- Summary and body in **English**. Switch to Italian only when Luca explicitly asks for it on the commit.
 - One concern per commit. If a change logically belongs to an earlier commit, use `git commit --fixup=<sha>` then `git rebase -i --autosquash` before pushing.
 
 ## Pull requests
