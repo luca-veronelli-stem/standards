@@ -27,12 +27,18 @@ git remote -v   # verify
 git remote add github    git@github.com:<luca-user>/<repo>.git
 git remote add bitbucket git@bitbucket.org:stem-fw/<repo>.git
 
+# Bitbucket is fetch-only — the Actions workflow handles mirroring.
+# Block accidental direct pushes by replacing the push URL with a placeholder.
+git remote set-url --push bitbucket no_push
+
 # Make 'github' the default push target
 git config --global push.default current
 git push -u github main
 ```
 
 Then add the mirror workflow (see below) and provision the Bitbucket deploy key.
+
+**Why `no_push`:** `main` is mirrored to Bitbucket by the Actions workflow on every push, so direct local pushes to `bitbucket` are unwanted. Git has no native "fetch-only" flag, so the idiomatic guard is to point the push URL at an unresolvable host (`no_push`) — any accidental `git push bitbucket` then fails loudly instead of racing the workflow.
 
 ## Mirror workflow setup (one-time per repo)
 
