@@ -84,5 +84,7 @@
   "voiceEnabled": true,
   "prefersReducedMotion": true,
   "autoDreamEnabled": true,
-  "skipDangerousModePermissionPrompt": true
+  "skipDangerousModePermissionPrompt": true,
+  "theme": "dark-ansi",
+  "autoUpdatesChannel": "latest"
 }
