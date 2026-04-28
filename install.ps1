@@ -119,10 +119,9 @@ if (-not $SkipPrereqs) {
 
     Refresh-Path
 
-    # uv (via pip if not present)
+    # uv / uvx (winget keeps it on PATH globally, unlike `pip install --user`)
     if (-not (Test-Command 'uv') -and -not (Test-Command 'uvx')) {
-        Write-Host "  pip install uv" -ForegroundColor DarkGray
-        python -m pip install --user --upgrade uv
+        Install-WingetPkg 'astral-sh.uv' 'uv'
         Refresh-Path
     } else { Write-Host "  uv/uvx: already installed" }
 
