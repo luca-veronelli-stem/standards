@@ -61,12 +61,13 @@ gh auth login           # authenticate GitHub CLI
 
 ### Rules (auto-applied based on path)
 
-| Rule              | Scope                                       |
-| ----------------- | ------------------------------------------- |
-| `communication`   | Always on — tone, conciseness, no trailing summaries |
-| `no-attribution`  | Always on — no "Generated with Claude" footers |
-| `dotnet`          | `*.cs`, `*.csproj`, `*.slnx`, `appsettings*.json` |
-| `dual-remote`     | Always on — two-remote git workflow conventions |
+| Rule                       | Scope                                       |
+| -------------------------- | ------------------------------------------- |
+| `communication`            | Always on — tone, conciseness, no trailing summaries |
+| `no-attribution`           | Always on — no "Generated with Claude" footers |
+| `dotnet`                   | `*.cs`, `*.csproj`, `*.slnx`, `appsettings*.json` |
+| `dual-remote`              | Always on — two-remote git workflow conventions |
+| `promote-to-llm-settings`  | Always on — route durable, cross-repo guidance into this repo instead of memory |
 
 ### Skills (available globally via `~/.claude/skills/`)
 
