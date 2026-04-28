@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     PreToolUse hook that blocks Edit/Write while the current git branch is main/master.
 

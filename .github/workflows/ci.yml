@@ -26,17 +26,15 @@ jobs:
           $files = Get-ChildItem -Recurse -Include *.ps1 -File `
             | Where-Object { $_.FullName -notmatch '\\\.git\\' }
           if (-not $files) { Write-Host 'No .ps1 files found.'; exit 0 }
-          # Fail on Errors only. Write-Host etc. are intentional in the installer;
-          # ratchet to Warning later if a stricter bar is wanted.
-          $errors = $files | ForEach-Object {
-            Invoke-ScriptAnalyzer -Path $_.FullName -Severity Error
+          $findings = $files | ForEach-Object {
+            Invoke-ScriptAnalyzer -Path $_.FullName -Settings ./PSScriptAnalyzerSettings.psd1
           }
-          if ($errors) {
-            $errors | Format-Table -AutoSize | Out-String | Write-Host
-            Write-Error "PSScriptAnalyzer found $(@($errors).Count) error(s)."
+          if ($findings) {
+            $findings | Format-Table -AutoSize | Out-String | Write-Host
+            Write-Error "PSScriptAnalyzer found $(@($findings).Count) issue(s)."
             exit 1
           }
-          Write-Host 'PSScriptAnalyzer: no errors.'
+          Write-Host 'PSScriptAnalyzer: clean.'
 
       - name: JSON validity
         shell: pwsh
