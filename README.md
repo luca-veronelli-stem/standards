@@ -46,8 +46,8 @@ Re-run whenever you want to refresh. Use `.\install.ps1 -SkipPrereqs` to skip th
 | Node.js LTS  | winget        | `npx` for `context7` and `playwright` MCP |
 | GitHub CLI   | winget        | PRs, issues, Actions runs, `new-ticket` skill |
 | PowerShell 7 | winget        | Better JSON handling, nicer scripting |
-| Python 3.12  | winget        | `uv`, `uvx` for `lean-lsp` MCP |
-| uv           | `pip install` | `uvx` lightweight script runner |
+| Python 3.12  | winget        | needed by some MCP servers (Lean LSP toolchain ecosystem) |
+| uv           | winget (`astral-sh.uv`) | `uvx` lightweight script runner used by `lean-lsp` MCP |
 | elan         | elan-init.ps1 | Lean 4 toolchain (`lake`, `lean`) |
 
 After a fresh install:
