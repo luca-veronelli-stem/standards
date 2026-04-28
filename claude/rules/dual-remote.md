@@ -66,7 +66,7 @@ The workflow uses an SSH **deploy key** scoped only to the Bitbucket mirror — 
        name: Push main to Bitbucket
        runs-on: ubuntu-latest
        steps:
-         - uses: actions/checkout@v4
+         - uses: actions/checkout@v6
            with:
              fetch-depth: 0
          - name: Configure SSH for Bitbucket
