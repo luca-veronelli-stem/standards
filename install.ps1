@@ -94,7 +94,7 @@ function Install-WingetPkg($id, $friendly) {
     }
 }
 
-function Refresh-Path {
+function Sync-Path {
     $m = [Environment]::GetEnvironmentVariable('PATH', 'Machine')
     $u = [Environment]::GetEnvironmentVariable('PATH', 'User')
     $env:PATH = "$m;$u"
@@ -117,12 +117,12 @@ if (-not $SkipPrereqs) {
     if ($pyCmd -and $pyCmd.Source -notlike '*WindowsApps*') { $pythonOk = $true }
     if (-not $pythonOk) { Install-WingetPkg 'Python.Python.3.12' 'Python 3.12' } else { Write-Host "  python: already installed" }
 
-    Refresh-Path
+    Sync-Path
 
     # uv / uvx (winget keeps it on PATH globally, unlike `pip install --user`)
     if (-not (Test-Command 'uv') -and -not (Test-Command 'uvx')) {
         Install-WingetPkg 'astral-sh.uv' 'uv'
-        Refresh-Path
+        Sync-Path
     } else { Write-Host "  uv/uvx: already installed" }
 
     # elan (Lean toolchain) - only if requested
@@ -138,7 +138,7 @@ if (-not $SkipPrereqs) {
                     $elanScript = [System.Text.Encoding]::UTF8.GetString($elanScript)
                 }
                 Invoke-Expression -Command $elanScript
-                Refresh-Path
+                Sync-Path
             } catch {
                 Write-Warning "    elan install failed - $($_.Exception.Message). Install manually from https://lean-lang.org"
             }
