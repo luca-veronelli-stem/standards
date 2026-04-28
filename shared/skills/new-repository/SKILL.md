@@ -112,45 +112,50 @@ foreach ($l in $labels) {
 
 ## Step 6: Branch protection (rulesets)
 
-Protect `main`: require PR, no direct pushes, required status check `Build Gate`.
+Apply the baseline ruleset on `main`: block deletion, block force-push, require linear history, require PR (no direct pushes, rebase/squash only).
+
+**Note:** rulesets require **GitHub Pro** for private repos but are free for public repos. Skip this step for private repos on a free account (the GitHub UI shows a "main isn't protected" banner that links to a paywall).
 
 ```powershell
 $body = @'
 {
-  "name": "main",
+  "name": "main protection",
   "target": "branch",
   "enforcement": "active",
-  "conditions": {
-    "ref_name": { "include": ["refs/heads/main"], "exclude": [] }
-  },
+  "conditions": { "ref_name": { "include": ["~DEFAULT_BRANCH"], "exclude": [] } },
   "rules": [
-    { "type": "pull_request",
+    { "type": "deletion" },
+    { "type": "non_fast_forward" },
+    { "type": "required_linear_history" },
+    {
+      "type": "pull_request",
       "parameters": {
         "required_approving_review_count": 0,
         "dismiss_stale_reviews_on_push": false,
         "require_code_owner_review": false,
         "require_last_push_approval": false,
-        "required_review_thread_resolution": false
+        "required_review_thread_resolution": false,
+        "allowed_merge_methods": ["rebase", "squash"]
       }
-    },
-    { "type": "required_status_checks",
-      "parameters": {
-        "strict_required_status_checks_policy": false,
-        "required_status_checks": [ { "context": "Build Gate" } ]
-      }
-    },
-    { "type": "deletion" },
-    { "type": "non_fast_forward" }
+    }
   ]
 }
 '@
 $body | gh api repos/<luca-user>/<repo-name>/rulesets -X POST --input -
 ```
 
-Add Luca as a bypass actor if needed:
+The ruleset applies to Luca too (`current_user_can_bypass: never`) — every change goes through a PR. If a hotfix ever needs to bypass, edit the ruleset to add a bypass actor temporarily, then remove.
+
+**Optional — required status checks.** Once the real CI replaces the bootstrap stub (Step 9), wire the relevant job names as required checks via a `required_status_checks` rule. Job names vary per project type (.NET, Lean, etc.), so this is per-repo, not part of the baseline.
 
 ```powershell
-gh api repos/<luca-user>/<repo-name> --jq .permissions
+# Append to the rules array of the existing ruleset, then PUT.
+{ "type": "required_status_checks",
+  "parameters": {
+    "strict_required_status_checks_policy": false,
+    "required_status_checks": [ { "context": "<job-name>" } ]
+  }
+}
 ```
 
 ## Step 7: Description, topics, homepage
