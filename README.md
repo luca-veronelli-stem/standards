@@ -8,17 +8,24 @@ Forked and heavily rewritten from [`paolino/llm-settings`](https://github.com/pa
 
 ```
 install.ps1                  Windows PowerShell installer (PS 5.1 compatible)
+CHANGELOG.md                 SemVer changelog for the standards bundle
 claude/
   CLAUDE.md                  global rules loaded by Claude Code
   settings.json              permissions, hooks, MCP enablement
   commands/                  custom slash-commands
   hooks/                     PreToolUse scripts (.ps1)
-  rules/                     path-scoped rules (dotnet, dual-remote, communication, no-attribution)
+  rules/                     path-scoped rules (dotnet, dual-remote, stem-conventions, …)
   scripts/                   helper scripts (Python/PowerShell)
 shared/
   skills/                    reusable skills (workflow, pr, dotnet, github-actions, …)
+  standards/                 v1 cross-repo standards (REPO_STRUCTURE, LANGUAGE, …)
+  templates/                 templates copied into work repos by the rollout script
   memory/                    per-project persistent memory (optional)
   mcp/servers.json           MCP server definitions merged into ~/.claude.json
+eng/
+  apply-repo-standard.ps1    rollout / bump script (per-repo adoption of standards)
+state/
+  repos.md                   STEM repos adoption tracker (which version each repo follows)
 ```
 
 ## Install
@@ -68,6 +75,7 @@ gh auth login           # authenticate GitHub CLI
 | `dotnet`                   | `*.cs`, `*.csproj`, `*.slnx`, `appsettings*.json` |
 | `dual-remote`              | Always on — two-remote git workflow conventions |
 | `promote-to-llm-settings`  | Always on — route durable, cross-repo guidance into this repo instead of memory |
+| `stem-conventions`         | `**/.stem-standard.json`, `**/docs/Standards/REPO_STRUCTURE.md` — points STEM work repos at the v1 standards |
 
 ### Skills (available globally via `~/.claude/skills/`)
 
@@ -78,6 +86,35 @@ Stack-specific: `dotnet`, `github-actions`, `bitbucket-pipelines`, `lean4`, `doc
 Spec-Driven Development: `speckit` + `speckit-{analyze,checklist,clarify,constitution,implement,plan,specify,tasks,taskstoissues}`
 
 General-purpose: `semantic-nav`
+
+### Standards (v1)
+
+Cross-repo conventions for STEM work repos live in `shared/standards/`. Inline copies land in each work repo's `docs/Standards/`, pinned to a specific Standard version:
+
+| Standard | Purpose |
+| --- | --- |
+| `REPO_STRUCTURE` | Root layout, archetype trees, naming rules |
+| `LANGUAGE` | F# default; layer-default table; deviation policy |
+| `MODULE_SEPARATION` | Onion (A) and hexagonal (B) layering; banned APIs |
+| `PORTABILITY` | `net10.0` default; TFM-conditional drivers; cross-platform replacements |
+| `BUILD_CONFIG` | `Directory.Build.props`, `Directory.Packages.props`, `global.json`, `.editorconfig` |
+| `TESTING` | xUnit + FsCheck + Avalonia.Headless; single F# tests project default |
+| `CI` | GitHub Actions: `ci.yml`, `mirror-bitbucket.yml`, `release.yml`; matrix legs |
+| `MIGRATION` | Per-repo adoption phases; major/minor/patch bump procedures |
+
+Templates that land in each work repo (`Directory.Build.props`, `.editorconfig`, GitHub workflows, issue/PR templates, etc.) live under `shared/templates/`. Each STEM repo declares its **Standard version** in its top-level `CLAUDE.md`; `state/repos.md` mirrors those declarations.
+
+### Rollout script
+
+```powershell
+& '<llm-settings>/eng/apply-repo-standard.ps1' `
+    -RepoPath <work-repo> `
+    -App <Name> -Archetype A `
+    -Owner <user> -LucaUser <user> `
+    -StandardVersion v1.0.0
+```
+
+On subsequent bumps the script reads `.stem-standard.json` from the work repo, so only `-StandardVersion` needs to change. See the `MIGRATION` standard for the full procedure.
 
 ### MCP servers
 
