@@ -109,6 +109,10 @@ Slug convention: `<type>/<short-description>` (e.g. `feat/ble-scan-timeout`).
 
 (Labels match the convention from the `new-repository` skill. The `enhancement` / `bug` GitHub defaults are not used — we use the conventional-commits style directly.)
 
+## Issue templates in v1 repos
+
+Adopted v1 STEM repos ship YAML form templates under `.github/ISSUE_TEMPLATE/{bug,feature,chore}.yml`. When `gh issue create` is used without `--web`, those templates are not applied — `gh` accepts a raw `--body` and bypasses the form. That's intentional here: this skill produces the body Claude crafted from the interview, not the form's questionnaire. The forms exist so colleagues opening issues from the Bitbucket-facing GitHub UI get the right shape.
+
 ## Validation links
 
 After each answer, show relevant links so Luca can verify you understood:

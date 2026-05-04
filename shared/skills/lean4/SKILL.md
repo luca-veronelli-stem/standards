@@ -11,7 +11,7 @@ Use this skill whenever editing Lean 4 proofs or debugging Lean builds. The `lea
 
 - `lake`, `lean`, `elan` installed via `elan` (install.ps1 handles this).
 - `lean-lsp` MCP available in Claude Code (via `uvx lean-lsp-mcp`).
-- Lean projects live under `Specs/PhaseN/` in STEM repos.
+- Lean projects live under `specs/<Namespace>/Phase<N>/` in v1 STEM repos (lowercase `specs/`, namespace folder, then `PhaseN/`).
 
 Verify your environment:
 
@@ -52,10 +52,10 @@ A proof is complete when:
 
 ## Typical STEM usage
 
-STEM repos use Lean 4 to formalize domain invariants (e.g., `Stem.Device.Manager/Specs/Phase1/`). The Lean spec drives the xUnit test suite, which drives the C# implementation. When touching any of these three, honor that order:
+STEM repos use Lean 4 to formalize domain invariants (e.g., `stem-device-manager/specs/Stem.DeviceManager/Phase1/`). The Lean spec drives the xUnit/FsCheck test suite, which drives the .NET implementation (F# preferred per the LANGUAGE standard). When touching any of these three, honor that order:
 
 1. Update the Lean predicate / theorem.
-2. Update the xUnit property test that mirrors the preservation theorem.
-3. Update the C# implementation to match.
+2. Update the property test (FsCheck) that mirrors the preservation theorem.
+3. Update the .NET implementation to match.
 
 If a change surfaces a gap in the Lean layer, go back to step 1 before continuing.

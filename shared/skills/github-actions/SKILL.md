@@ -1,179 +1,65 @@
 ---
 name: "github-actions"
-description: "Write .NET GitHub Actions workflows: dotnet build + xUnit tests, NuGet cache, dual-TFM matrix, artifact publish, concurrency."
+description: "Edit .NET GitHub Actions workflows in STEM repos: ci, mirror-bitbucket, release. Templates ship with the v1 standards."
 ---
 
 # GitHub Actions for .NET
 
-Primary CI for Luca's work. Active on the `github` remote. Triggers on push to main and on PRs.
+Primary CI for Luca's work. Active on the `github` remote. The v1 standards ship the canonical workflows under `shared/templates/.github/workflows/`; the rollout script copies them into each repo. **Don't write a workflow from scratch — start from the template** and adjust per-repo.
 
-## Directory & filename conventions
+## Workflows shipped per repo
 
-```
-.github/
-├── workflows/
-│   ├── ci.yml         # main CI — build + test on PR and push
-│   ├── release.yml    # triggered by version tag
-│   └── publish.yml    # pushes NuGet to Azure Artifacts (if applicable)
-```
+| Workflow | Source template | Trigger |
+| --- | --- | --- |
+| `.github/workflows/ci.yml` | `shared/templates/.github/workflows/ci.yml` | push, PR, dispatch, weekly cron |
+| `.github/workflows/mirror-bitbucket.yml` | `shared/templates/.github/workflows/mirror-bitbucket.yml` | push to `main` |
+| `.github/workflows/release.yml` (A) | `shared/templates/archetypes/A/.github/workflows/release.yml` | tag `v*.*.*` (zip self-contained) |
+| `.github/workflows/release.yml` (B) | `shared/templates/archetypes/B/.github/workflows/release.yml` | tag `v*.*.*` (NuGet to GitHub Packages) |
 
-One workflow per file. Filename matches the top-level `name:`.
+The CI standard (`docs/Standards/CI.md` inside a work repo, or `shared/standards/CI.md` upstream) describes the contract: matrix `[ubuntu-latest, windows-latest]`, format check as a hard gate, conditional Linux/Windows build+test legs, NuGet + Lean cache, `dorny/test-reporter` for TRX surfacing.
 
-## ci.yml template (STEM .NET 10)
+## Required status checks
 
-```yaml
-name: CI
+For branch protection, point the rule at the matrix job names:
 
-on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
-env:
-  DOTNET_NOLOGO: true
-  DOTNET_CLI_TELEMETRY_OPTOUT: true
-  NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
-
-jobs:
-  build-gate:
-    name: Build Gate
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '10.0.x'
-
-      - name: Cache NuGet
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.NUGET_PACKAGES }}
-          key:  nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/Directory.Packages.props') }}
-          restore-keys: nuget-${{ runner.os }}-
-
-      - name: Restore
-        run: dotnet restore <Repo>.slnx
-
-      - name: Build (Release, cross-platform subset)
-        run: dotnet build <Repo>.slnx -c Release --no-restore -p:EnableWindowsTargeting=true
-
-      - name: Test (net10.0 only — cross-platform)
-        run: >
-          dotnet test Tests/Tests.csproj
-          --framework net10.0
-          -c Release
-          --no-build
-          --logger "trx;LogFileName=test-results.trx"
-          --results-directory ./test-results
-
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-results
-          path: ./test-results/
+```jsonc
+"required_status_checks": [
+  { "context": "build (ubuntu-latest)" },
+  { "context": "build (windows-latest)" }
+]
 ```
 
-Adjust `<Repo>.slnx` and the `dotnet-version` if the target changes.
+(See the `new-repository` skill for the full ruleset payload.)
 
-## Required status check
+## Editing a workflow in an adopted repo
 
-Name the job `Build Gate` and reference it from the branch protection ruleset (see `new-repository` skill). Every PR must have this check green before merge.
+If you need a per-repo deviation from the template:
 
-## Release workflow
+1. Make the change in the work repo's `.github/workflows/` file.
+2. If the deviation is durable and applicable to other STEM repos, propose pulling it back into `shared/templates/` so future repos get it. The `promote-to-llm-settings` rule handles this.
+3. If the deviation is repo-specific (e.g. the repo needs a Selenium service container), don't try to push it upstream — note it in the repo's `CLAUDE.md` "Repo-specific notes" section.
 
-Triggered by a version tag push (`v2.15.0`). Builds, runs tests, creates a GitHub Release, uploads build artifacts.
-
-```yaml
-name: Release
-
-on:
-  push:
-    tags: ['v*.*.*']
-
-permissions:
-  contents: write
-
-jobs:
-  release:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '10.0.x'
-      - run: dotnet build <Repo>.slnx -c Release -p:EnableWindowsTargeting=true
-      - run: dotnet test Tests/Tests.csproj --framework net10.0 -c Release --no-build
-      - name: Create GitHub Release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release create ${{ github.ref_name }} \
-            --generate-notes \
-            ./path/to/build/output/*.zip
-```
-
-## NuGet publish to Azure Artifacts
-
-If the repo ships a package:
-
-```yaml
-name: Publish
-
-on:
-  release:
-    types: [published]
-
-jobs:
-  publish:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '10.0.x'
-
-      - name: Setup Azure Artifacts source
-        run: |
-          dotnet nuget add source "${{ secrets.AZURE_ARTIFACTS_URL }}" \
-            --name stem-azure \
-            --username luca \
-            --password "${{ secrets.AZURE_ARTIFACTS_PAT }}" \
-            --store-password-in-clear-text
-
-      - name: Pack
-        run: dotnet pack <Project>/<Project>.csproj -c Release -o ./pkg
-
-      - name: Push
-        run: dotnet nuget push "./pkg/*.nupkg" --source stem-azure --api-key az --skip-duplicate
-```
-
-Secrets needed: `AZURE_ARTIFACTS_URL`, `AZURE_ARTIFACTS_PAT`.
+The rollout script overwrites `.github/workflows/*.yml` on bump. Repo-specific edits get clobbered. Either upstream the change or be ready to re-apply it after every bump.
 
 ## Conventions
 
-- **Always set `concurrency`** with `cancel-in-progress: true` so stale runs are killed when new commits land.
-- **Set `permissions:` explicitly** per workflow (default to `contents: read`; grant `contents: write` only when releases/tags are involved).
-- **Use `actions/setup-dotnet@v4`**, not older versions. Pin to `10.0.x` (wildcard minor).
-- **Use `actions/cache@v4`** for NuGet restore; key off hash of `.csproj` files.
-- **Use `-p:EnableWindowsTargeting=true`** whenever you build a `.slnx` that contains `net10.0-windows` projects on a Linux runner.
-- **Don't run `net10.0-windows` tests on Linux** — they fail. Filter by framework: `--framework net10.0`.
-- **Upload test results as an artifact** even on failure (`if: always()`), so you can download the `.trx` and inspect offline.
+- **Always set `concurrency`** with `cancel-in-progress: true`. The templates do this.
+- **Set `permissions:` explicitly** per workflow (default `contents: read`; grant `contents: write` only when releases/tags are involved; `packages: write` for archetype B's release).
+- **Use `actions/setup-dotnet@v4`** with `global-json-file: global.json`. Don't pin `dotnet-version:` directly.
+- **Use `actions/cache@v4`** for NuGet restore; key off `Directory.Packages.props` hash (the template does this).
+- **Use multi-TFM legs conditionally** — Linux runs `--framework net10.0`; Windows runs unrestricted.
+- **Don't run `net10.0-windows` tests on Linux** — the template's conditional steps handle this.
+- **Upload test results** even on failure (`if: always()`). The template uses `dorny/test-reporter@v1` for inline PR-check rendering.
 - **Never hard-code secrets.** Use `${{ secrets.NAME }}` and set them via `gh secret set NAME --body "..."`.
 
-## Triggering on both GitHub and Bitbucket
+## NuGet publish — archetype B (GitHub Packages)
 
-The dual-remote mirror push (see `dual-remote` rule) means the same commits land on Bitbucket too. Keep `bitbucket-pipelines.yml` minimal / independent — don't try to mirror this file's logic there. Bitbucket Pipelines runs on a different schema; see the `bitbucket-pipelines` skill.
+The archetype B release template publishes to **GitHub Packages**, not Azure Artifacts. Authenticated via `GITHUB_TOKEN` (no extra setup). For legacy repos still publishing to Azure Artifacts, see the `dotnet` skill's NuGet section — the secret/PAT setup remains valid until those packages migrate.
 
 ## Troubleshooting
 
-- **`The process '/usr/bin/dotnet' failed with exit code 1`** — check the log, usually a missing `-p:EnableWindowsTargeting=true`.
-- **`EnableWindowsTargeting` didn't help** — some packages (OxyPlot.WindowsForms, Plugin.BLE) can't restore on Linux. Move them to a `net10.0-windows`-only project and split the solution build into two jobs.
-- **Stuck on old workflow** — GH only runs PR-triggered workflows if the workflow file exists on the default branch. Push the workflow to main first.
-- **Test failures differ locally vs CI** — usually a nullable-reference-warning promoted to error only in Release config. Run `dotnet build -c Release` locally to catch.
+- **`The process '/usr/bin/dotnet' failed with exit code 1`** — usually a missing TFM filter on Linux. Confirm the template's `if: runner.os == 'Linux'` conditional is in place on the build/test steps.
+- **`EnableWindowsTargeting` errors** — only needed for solutions that build legacy WinForms/WPF projects on Linux. v1-adopted repos shouldn't need this; if they do, a project is leaking Windows code into a non-driver layer (see PORTABILITY).
+- **First PR-triggered run never starts** — GitHub only runs PR-triggered workflows if the workflow file already exists on the default branch. The bootstrap PR adds the workflow files, so the first run happens **on the bootstrap PR's branch** before merge.
+- **Stuck on old workflow content** — clear the runner cache (settings → Actions → caches) if a stale `Directory.Packages.props` hash makes restore reuse a broken cache.
+- **Mirror workflow fails with "error in libcrypto"** — the `BITBUCKET_SSH_KEY` secret was set via a PowerShell pipe (line-ending conversion). Re-set it from bash: `cat ~/.ssh/bb_mirror | gh secret set BITBUCKET_SSH_KEY --repo <owner>/<repo>`.
