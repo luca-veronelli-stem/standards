@@ -1,7 +1,7 @@
 name: Bug
 description: Something does not work as expected
-title: "bug: <short summary>"
-labels: ["bug"]
+title: "fix: <short summary>"
+labels: ["fix"]
 
 body:
   - type: markdown

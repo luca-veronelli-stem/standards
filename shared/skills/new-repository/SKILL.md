@@ -1,20 +1,22 @@
 ---
 name: "new-repository"
-description: "Bootstrap a new repo: init, dual-remote setup, labels, branch protection, stub CI."
+description: "Bootstrap a new repo: gh create + dual-remote + apply v1 standards + labels + branch protection."
 ---
 
 # New Repository Setup
 
-Creating a new STEM work repo (bootstrap on GitHub + mirror on Bitbucket), or a new GitHub-only repo (like `llm-settings`).
+Creating a new STEM work repo (GitHub-primary, Bitbucket-mirror) or a GitHub-only repo. The v1 standards rollout script (`<llm-settings>/eng/apply-repo-standard.ps1`) does most of the structural work; this skill covers the steps that live outside the script.
 
 ## Step 1: Create the GitHub repo
 
 ```powershell
 gh repo create <luca-user>/<repo-name> --private --clone
 cd <repo-name>
+git commit --allow-empty -m "chore: bootstrap"
+git push origin main
 ```
 
-Use `--public` only when explicitly requested. Default to private for work repos.
+Use `--public` only when explicitly requested. Default to private for work repos. The empty bootstrap commit makes `main` exist before adding other commits.
 
 ## Step 2: Dual-remote setup (STEM work repos only)
 
@@ -23,77 +25,40 @@ Rename `origin` to `github` and add `bitbucket`:
 ```powershell
 git remote rename origin github
 git remote add bitbucket git@bitbucket.org:stem-fw/<repo-name>.git
+git remote set-url --push bitbucket no_push   # Bitbucket fetch-only; mirror via Actions
+git remote -v
 ```
 
-Wire the mirror pushurl so `git push github <branch>` hits both hosts:
+Skip this step for GitHub-only repos like `llm-settings`. See the `dual-remote` rule for the full mirror-workflow setup (deploy key, Actions secret, workflow file).
+
+## Step 3: Apply the v1 standards (rollout script)
+
+Run the rollout script from `llm-settings`. It lays down templates, archetype overlay, inline standards, and `.stem-standard.json`:
 
 ```powershell
-git remote set-url --add --push github git@github.com:<luca-user>/<repo-name>.git
-git remote set-url --add --push github git@bitbucket.org:stem-fw/<repo-name>.git
-git remote -v  # verify: github has two (push) lines, bitbucket has one each
+& 'C:\Users\LucaV\Source\Repos\llm-settings\eng\apply-repo-standard.ps1' `
+    -RepoPath . `
+    -App <AppName> `
+    -Archetype A `
+    -Owner <luca-user> `
+    -LucaUser <luca-user> `
+    -StandardVersion v1.0.0 `
+    -Description '<one-line summary>'
 ```
 
-Skip this step for GitHub-only repos like `llm-settings`.
-
-## Step 3: Initial files
-
-```
-README.md
-.gitignore     # use dotnet or the appropriate language default
-LICENSE        # "proprietary — STEM E.m.s." for work repos
-.editorconfig  # standard C# conventions
-```
-
-For .NET solutions, also add:
-
-```
-Directory.Build.props  # Version, Authors, Copyright, common TargetFramework
-<Repo>.slnx            # solution file (modern XML format, not .sln)
-Core/Core.csproj
-Tests/Tests.csproj
-```
-
-## Step 4: Stub CI
-
-**GitHub Actions must exist on `main` before the first PR**, otherwise PR-triggered workflows don't run.
-
-Commit a minimal `.github/workflows/ci.yml` that always passes, then push to `main`:
-
-```yaml
-name: CI
-
-on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
-jobs:
-  build-gate:
-    name: Build Gate
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: echo "CI stub — replaced by real CI in the first feature PR"
-```
-
-Push to main directly (this is the *only* legit direct-to-main push):
+Use `-DryRun` to preview. After the script runs:
 
 ```powershell
-git add .github/workflows/ci.yml README.md .gitignore LICENSE
-git commit -m "chore: bootstrap CI stub"
-git push github main
+git switch -c chore/v1-bootstrap
+git add .
+git commit -m "chore: bootstrap v1 standards (Stem.<App>, archetype A)"
 ```
 
-The first feature PR then replaces the stub with the real CI (see the `github-actions` skill for .NET workflow templates). For Bitbucket side, a matching `bitbucket-pipelines.yml` stub goes in the same bootstrap commit — see the `bitbucket-pipelines` skill.
+The first feature project (`src/<App>.Core/<App>.Core.fsproj`, etc.) goes in **the same PR or a follow-up** — the script doesn't create source projects, only the toolchain scaffold.
 
-## Step 5: Labels
+## Step 4: Labels
 
-Apply the conventional-commits label set:
+The issue templates ship with conventional-commits labels (`feat`, `fix`, `chore`). Apply the full label set so PRs/issues can be filtered:
 
 ```powershell
 $labels = @(
@@ -110,11 +75,11 @@ foreach ($l in $labels) {
 }
 ```
 
-## Step 6: Branch protection (rulesets)
+## Step 5: Branch protection (rulesets)
 
-Apply the baseline ruleset on `main`: block deletion, block force-push, require linear history, require PR (no direct pushes, rebase/squash only).
+Apply the baseline ruleset on `main`: block deletion, block force-push, require linear history, require PR (rebase/squash only).
 
-**Note:** rulesets require **GitHub Pro** for private repos but are free for public repos. Skip this step for private repos on a free account (the GitHub UI shows a "main isn't protected" banner that links to a paywall).
+**Note:** rulesets require **GitHub Pro** for private repos but are free for public repos. Skip for private repos on a free account (a "main isn't protected" banner links to a paywall).
 
 ```powershell
 $body = @'
@@ -144,21 +109,29 @@ $body = @'
 $body | gh api repos/<luca-user>/<repo-name>/rulesets -X POST --input -
 ```
 
-The ruleset applies to Luca too (`current_user_can_bypass: never`) — every change goes through a PR. If a hotfix ever needs to bypass, edit the ruleset to add a bypass actor temporarily, then remove.
+The ruleset applies to Luca too (`current_user_can_bypass: never`) — every change goes through a PR.
 
-**Optional — required status checks.** Once the real CI replaces the bootstrap stub (Step 9), wire the relevant job names as required checks via a `required_status_checks` rule. Job names vary per project type (.NET, Lean, etc.), so this is per-repo, not part of the baseline.
+After the first green CI run, append a `required_status_checks` rule referencing the matrix job names:
 
-```powershell
-# Append to the rules array of the existing ruleset, then PUT.
+```jsonc
 { "type": "required_status_checks",
   "parameters": {
     "strict_required_status_checks_policy": false,
-    "required_status_checks": [ { "context": "<job-name>" } ]
+    "required_status_checks": [
+      { "context": "build (ubuntu-latest)" },
+      { "context": "build (windows-latest)" }
+    ]
   }
 }
 ```
 
-## Step 7: Description, topics, homepage
+## Step 6: `delete_branch_on_merge`
+
+```powershell
+gh api -X PATCH /repos/<luca-user>/<repo-name> -F delete_branch_on_merge=true
+```
+
+## Step 7: Description, topics
 
 ```powershell
 gh api repos/<luca-user>/<repo-name> -X PATCH `
@@ -169,29 +142,38 @@ $topics = @{ names = @('dotnet', 'stem') } | ConvertTo-Json
 $topics | gh api repos/<luca-user>/<repo-name>/topics -X PUT --input -
 ```
 
-## Step 8: Speckit (optional)
+## Step 8: Mirror workflow setup (STEM work repos only)
+
+Per the `dual-remote` rule:
+
+1. Generate the deploy key: `ssh-keygen -t ed25519 -C "github-actions-mirror@<repo>" -f $HOME\.ssh\bb_mirror -N '""'`.
+2. Register the public key on Bitbucket (Repo settings → Access keys, write enabled).
+3. Register the private key as `BITBUCKET_SSH_KEY` Actions secret: `cat ~/.ssh/bb_mirror | gh secret set BITBUCKET_SSH_KEY --repo <luca-user>/<repo>`.
+4. The mirror workflow itself ships with the v1 templates — `.github/workflows/mirror-bitbucket.yml`. Edit `{{Repo}}` substitution if your project name differs from the GitHub repo slug.
+
+## Step 9: Speckit (optional)
 
 If using Spec-Driven Development, initialize spec-kit:
 
 ```powershell
-npx -y @github/spec-kit init --here --ai claude --script sh --offline --ignore-agent-tools
-# Remove per-project speckit-* skills (we have them globally)
+specify init --here --ai claude --script sh --offline --ignore-agent-tools
+# Remove per-project speckit copies (we have them globally)
 Remove-Item -Recurse -Force .claude/commands/speckit.*.md -ErrorAction SilentlyContinue
 Remove-Item -Recurse -Force .claude/skills/speckit-*     -ErrorAction SilentlyContinue
 Remove-Item -Force .claude/commands, .claude/skills, .claude -ErrorAction SilentlyContinue
 ```
 
-Fill `.specify/memory/constitution.md` with the project's principles — see the `speckit` skill.
+Fill `.specify/memory/constitution.md` — see the `speckit` skill.
 
-## Step 9: First feature PR
+## Step 10: First feature PR
 
-Create a feature branch, replace the CI stub with the real workflow from the `github-actions` skill, open the PR.
+Open a PR for the bootstrap branch. CI on `main` doesn't exist yet, but the PR-triggered run on the bootstrap branch will be the first green run. After that's green, configure required status checks (Step 5) and merge.
 
 ```powershell
-git switch -c feat/initial-ci
-# edit .github/workflows/ci.yml with the real workflow
-git add .
-git commit -m "feat: add real CI workflow with dotnet build + test"
-git push -u github feat/initial-ci
-gh pr create --title "feat: add real CI" --body "Replaces the bootstrap stub with the actual CI pipeline." --label ci
+git push -u github chore/v1-bootstrap
+gh pr create --title "chore: bootstrap v1 standards" --body "Applies llm-settings v1.0.0 standards via apply-repo-standard.ps1." --label chore
 ```
+
+## Step 11: Update `state/repos.md`
+
+Once merged, record the adoption in `<llm-settings>/state/repos.md` (Standard version + Last bumped date). Open a small PR there.

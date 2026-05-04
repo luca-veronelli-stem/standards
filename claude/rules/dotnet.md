@@ -23,19 +23,12 @@ paths:
 
 **Mocking.** No mocking libraries. Write manual fakes under `Tests/Integration/Presenter/Mocks/` (or similar). Fakes are normal classes implementing the interface.
 
-**Test layout.** xUnit. Dual TFM: `net10.0` (cross-platform, runs on CI Linux) + `net10.0-windows` (WinForms/WPF-dependent, Windows-only). Gate WinForms/WPF test code with `#if WINDOWS`. Test naming: `{ClassName}Tests` + `{Method}_{Scenario}_{ExpectedResult}`. `[Fact]` for singles, `[Theory]` + `[InlineData]` for parametrized.
+**Test layout.** xUnit. Single F# tests project per repo by default (`tests/<App>.Tests/`, `net10.0`); split only when the C# surface justifies it. See the TESTING standard. Test naming: `{ClassName}Tests` + `{Method}_{Scenario}_{ExpectedResult}`. `[Fact]` for singles, `[Theory]` + `[InlineData]` for parametrized; `[<Property>]` (FsCheck) for property tests.
 
-**Solution files.** Prefer the modern `.slnx` format, not `.sln`. One `Directory.Build.props` at the solution root carrying `Version`, `Authors`, `Copyright`, and common properties.
+**Solution files.** Prefer the modern `.slnx` format, not `.sln`. `Directory.Build.props` and `Directory.Packages.props` (Central Package Management) live at the solution root — see the BUILD_CONFIG standard.
 
-**Project shape (typical).**
-```
-Core/                       net10.0, zero deps     — domain models + interfaces
-Infrastructure.Persistence/ net10.0                — data providers (EF, API, Excel…)
-Infrastructure.Protocol/    net10.0;net10.0-windows — HW adapters (BLE/CAN/Serial)
-Services/                   net10.0                — pure business logic
-GUI.Windows/                net10.0-windows        — WinForms / WPF entry point
-Tests/                      dual TFM               — xUnit
-Specs/                      Lean 4                 — formal invariants
-```
+**Project shape and module separation.** Adopted STEM repos follow the v1 standards' archetype layouts (onion for archetype A, hexagonal for archetype B). See `docs/Standards/REPO_STRUCTURE.md` and `docs/Standards/MODULE_SEPARATION.md` inside the repo, or `shared/standards/` upstream in `llm-settings`.
+
+**Language defaults.** F# is the default for new projects per the LANGUAGE standard. Existing C# code stays C# unless there's a separate migration phase. Mixed F#/C# solutions work without ceremony — project references are language-agnostic.
 
 **Refactor discipline.** Discuss the plan before implementing. Pragmatic beats elegant. Don't introduce interfaces, generic helpers, or abstractions without a concrete second caller or testability need.
