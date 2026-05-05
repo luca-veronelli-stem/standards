@@ -14,6 +14,8 @@ The version number is the git tag (`v1.0.0`, `v1.1.0`, …). There is no version
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-05-05
+
 ### Added
 - Eight new standards under `shared/standards/`, promoted from `stem-communication`'s legacy `Docs/Standards/` and genericized for cross-repo use: `EVENTARGS`, `VISIBILITY`, `LOGGING`, `THREAD_SAFETY`, `CANCELLATION`, `COMMENTS`, `ERROR_HANDLING`, `CONFIGURATION`. Each is English-native, drops the rule-code bureaucracy (TS-001, EA-001, …), and is archetype-aware (different rules for libraries vs apps where the data justified it). The `COMMENTS` standard explicitly drops the legacy "Italian for All" principle in favor of the CLAUDE.md English-by-default rule. The `CONFIGURATION` standard renames "Layer" to "Service / Component" so apps and libraries both adopt the fail-fast validation pattern. The `ERROR_HANDLING` standard is genericized away from `LayerResult` and per-layer error-code prefixes. Closes part of #20.
 - `shared/templates/docs/STANDARD_TEMPLATE.md` — meta-template for authoring future standards. Matches the v1.0/v1.2.0 house style (stability+principle blockquote, prose-driven sections, no rule codes, no severity markers).
