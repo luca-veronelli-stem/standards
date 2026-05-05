@@ -91,18 +91,26 @@ General-purpose: `semantic-nav`
 
 Cross-repo conventions for STEM work repos live in `shared/standards/`. Inline copies land in each work repo's `docs/Standards/`, pinned to a specific Standard version:
 
-| Standard | Purpose |
-| --- | --- |
-| `REPO_STRUCTURE` | Root layout, archetype trees, naming rules |
-| `LANGUAGE` | F# default; layer-default table; deviation policy |
-| `MODULE_SEPARATION` | Onion (A) and hexagonal (B) layering; banned APIs |
-| `PORTABILITY` | `net10.0` default; TFM-conditional drivers; cross-platform replacements |
-| `BUILD_CONFIG` | `Directory.Build.props`, `Directory.Packages.props`, `global.json`, `.editorconfig` |
-| `TESTING` | xUnit + FsCheck + Avalonia.Headless; single F# tests project default |
-| `CI` | GitHub Actions: `ci.yml`, `mirror-bitbucket.yml`, `release.yml`; matrix legs |
-| `MIGRATION` | Per-repo adoption phases; major/minor/patch bump procedures |
+| Standard | Since | Purpose |
+| --- | --- | --- |
+| `REPO_STRUCTURE` | v1.0 | Root layout, archetype trees, naming rules |
+| `LANGUAGE` | v1.0 | F# default; layer-default table; deviation policy |
+| `MODULE_SEPARATION` | v1.0 | Onion (A) and hexagonal (B) layering; banned APIs |
+| `PORTABILITY` | v1.0 | `net10.0` default; TFM-conditional drivers; cross-platform replacements |
+| `BUILD_CONFIG` | v1.0 | `Directory.Build.props`, `Directory.Packages.props`, `global.json`, `.editorconfig` |
+| `TESTING` | v1.0 | xUnit + FsCheck + Avalonia.Headless; single F# tests project default |
+| `CI` | v1.0 | GitHub Actions: `ci.yml`, `mirror-bitbucket.yml`, `release.yml`; matrix legs |
+| `MIGRATION` | v1.0 | Per-repo adoption phases; major/minor/patch bump procedures |
+| `EVENTARGS` | v1.2 | Two valid event-payload shapes (`sealed class : EventArgs` or `sealed record`); banned primitives |
+| `VISIBILITY` | v1.2 | Archetype-aware default-internal (B) / default-public (A); seal-by-default (CA1852) |
+| `LOGGING` | v1.2 | `ILogger<T>` (optional in B, required in A); structured-only; `Console.WriteLine` banned |
+| `THREAD_SAFETY` | v1.2 | Decision order (immutability → `Channel<T>` → primitives); .NET 10 `Lock`; sync-over-async banned |
+| `CANCELLATION` | v1.2 | `CancellationToken` propagation; linked-CTS timeout; OCE handling |
+| `COMMENTS` | v1.2 | XML doc coverage by visibility; English by default; `<inheritdoc/>` |
+| `ERROR_HANDLING` | v1.2 | Try-pattern / Result type / exception decision tree; BCL throw helpers |
+| `CONFIGURATION` | v1.2 | Constants → Configuration → Service pattern; library + app delivery mechanisms |
 
-Templates that land in each work repo (`Directory.Build.props`, `.editorconfig`, GitHub workflows, issue/PR templates, etc.) live under `shared/templates/`. Each STEM repo declares its **Standard version** in its top-level `CLAUDE.md`; `state/repos.md` mirrors those declarations.
+Templates that land in each work repo (`Directory.Build.props`, `.editorconfig`, GitHub workflows, issue/PR templates, etc.) live under `shared/templates/`. Doc templates for authoring new standards and per-component READMEs live under `shared/templates/docs/`; the archetype-B-only `API_SURFACE.md` template lives under `shared/templates/archetypes/B/docs/`. Each STEM repo declares its **Standard version** in its top-level `CLAUDE.md`; `state/repos.md` mirrors those declarations.
 
 ### Rollout script
 
