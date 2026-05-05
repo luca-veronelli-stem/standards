@@ -1,0 +1,812 @@
+@startuml STEM Communication Protocol - State Machine Diagram
+!theme plain
+skinparam StateAttributeIconSize 0
+skinparam StateBorderThickness 2
+skinparam ArrowThickness 1.5
+skinparam StateBackgroundColor<<active>> #C8E6C9
+skinparam StateBackgroundColor<<error>> #FFCDD2
+skinparam StateBackgroundColor<<waiting>> #E1F5FE
+skinparam StateBackgroundColor<<processing>> #FFF3E0
+
+title STEM Communication Protocol - State Machine Diagrams
+caption Protocol v2.0 - System States and Transitions
+
+' ================================================================================
+' STATE MACHINE 1: SESSION LAYER STATE MACHINE
+' ================================================================================
+
+state "Session Layer State Machine" as SessionSM {
+    
+    note as SessionNote
+        **Session Layer (Layer 5)**
+        Manages connection lifecycle
+        with remote devices
+        
+        Timeout: 600 seconds (default)
+        Heartbeat: 2 seconds
+    end note
+    
+    [*] --> Disconnected : Initial State
+    
+    state Disconnected <<waiting>> {
+        Disconnected : No active session
+        Disconnected : Waiting for connection
+        Disconnected : Resources released
+    }
+    
+    state Initialized <<processing>> {
+        Initialized : Session parameters set
+        Initialized : Waiting for first message
+        Initialized : Timer started
+    }
+    
+    state Connected <<active>> {
+        Connected : Session active
+        Connected : Messages flowing
+        Connected : Heartbeat monitoring
+        
+        state "Activity Monitoring" as ActivityMonitor {
+            [*] --> Idle
+            Idle --> Active : Message sent/received
+            Active --> Idle : No activity
+            Idle --> Timeout : IdleTime > SessionTimeout
+        }
+    }
+    
+    state Closing <<processing>> {
+        Closing : Cleanup in progress
+        Closing : Firing events
+        Closing : Releasing resources
+    }
+    
+    ' Transitions
+    Disconnected --> Initialized : OpenSession(remoteDeviceId)
+    Disconnected --> Disconnected : Shutdown() [already disconnected]
+    
+    Initialized --> Connected : First message\nsent/received
+    Initialized --> Disconnected : Timeout [no activity]
+    Initialized --> Closing : CloseSession()
+    
+    Connected --> Closing : CloseSession()
+    Connected --> Closing : SessionExpired\n[IdleTime > Timeout]
+    Connected --> Connected : ProcessMessage()\n[RecordActivity]
+    
+    Closing --> Disconnected : Cleanup complete\n[Fire SessionTerminated]
+    
+    ' Events
+    Disconnected -[#blue,dashed]-> Initialized : <<triggers>>\nSessionManager.Initialize()
+    Connected -[#green,dashed]-> Connected : <<event>>\nSessionEstablished
+    Closing -[#red,dashed]-> Disconnected : <<event>>\nSessionTerminated
+}
+
+' ================================================================================
+' STATE MACHINE 2: PROTOCOL LAYER STATE MACHINE
+' ================================================================================
+
+newpage Protocol Layer Lifecycle
+
+state "Protocol Layer State Machine" as LayerSM {
+    
+    note as LayerNote
+        **IProtocolLayer Lifecycle**
+        Common state machine for
+        all 7 protocol layers
+        
+        Applies to:
+        • Physical Layer
+        • DataLink Layer
+        • Network Layer
+        • Transport Layer
+        • Session Layer
+        • Presentation Layer
+        • Application Layer
+    end note
+    
+    [*] --> Uninitialized : Layer created
+    
+    state Uninitialized <<waiting>> {
+        Uninitialized : IsInitialized = false
+        Uninitialized : No configuration
+        Uninitialized : Cannot process data
+    }
+    
+    state Initializing <<processing>> {
+        Initializing : Loading configuration
+        Initializing : Allocating resources
+        Initializing : Validating parameters
+        
+        state "Validation" as Validation {
+            [*] --> ValidateConfig
+            ValidateConfig --> AllocateResources : Config valid
+            ValidateConfig --> ValidationFailed : Config invalid
+            AllocateResources --> ConnectDependencies
+            ConnectDependencies --> [*]
+        }
+    }
+    
+    state Ready <<active>> {
+        Ready : IsInitialized = true
+        Ready : Processing enabled
+        Ready : Full functionality
+        
+        state "Processing Mode" as Processing {
+            [*] --> Idle
+            Idle --> ProcessingUpstream : ProcessUpstreamAsync()
+            Idle --> ProcessingDownstream : ProcessDownstreamAsync()
+            ProcessingUpstream --> Idle : Complete
+            ProcessingDownstream --> Idle : Complete
+        }
+    }
+    
+    state Error <<error>> {
+        Error : Operation failed
+        Error : May require reset
+        Error : Error details captured
+    }
+    
+    state ShuttingDown <<processing>> {
+        ShuttingDown : Releasing resources
+        ShuttingDown : Closing connections
+        ShuttingDown : Cleanup complete
+    }
+    
+    ' Transitions
+    Uninitialized --> Initializing : InitializeAsync(config)
+    
+    Initializing --> Ready : Initialization success
+    Initializing --> Error : Initialization failed
+    Initializing --> Uninitialized : Validation failed
+    
+    Ready --> ShuttingDown : Shutdown()
+    Ready --> Error : Critical error
+    Ready --> Ready : Process message
+    
+    Error --> Initializing : Retry initialization
+    Error --> ShuttingDown : Shutdown()
+    
+    ShuttingDown --> Uninitialized : Cleanup complete
+}
+
+' ================================================================================
+' STATE MACHINE 3: CHUNK REASSEMBLY STATE MACHINE
+' ================================================================================
+
+newpage Chunk Reassembly State Machine
+
+state "Chunk Reassembly State Machine" as ReassemblySM {
+    
+    note as ReassemblyNote
+        **Transport Layer (Layer 4)**
+        Packet chunking and reassembly
+        
+        Max chunk size: 200 bytes
+        Packet ID range: 1-7
+        Max chunks: 1023
+    end note
+    
+    [*] --> WaitingForFirstChunk : Reassembler ready
+    
+    state WaitingForFirstChunk <<waiting>> {
+        WaitingForFirstChunk : No active packet
+        WaitingForFirstChunk : Buffer empty
+        WaitingForFirstChunk : Ready for new packet
+    }
+    
+    state ReceivingChunks <<processing>> {
+        ReceivingChunks : Packet in progress
+        ReceivingChunks : Buffer accumulating
+        ReceivingChunks : Tracking chunks remaining
+        
+        state "Chunk Processing" as ChunkProc {
+            [*] --> ValidateChunk
+            ValidateChunk --> StoreChunk : Valid chunk
+            ValidateChunk --> RejectChunk : Invalid chunk
+            StoreChunk --> UpdateMetadata
+            UpdateMetadata --> CheckComplete
+            CheckComplete --> [*]
+        }
+    }
+    
+    state Complete <<active>> {
+        Complete : All chunks received
+        Complete : Data concatenated
+        Complete : Ready for upstream
+    }
+    
+    state ReassemblyError <<error>> {
+        ReassemblyError : Reassembly failed
+        ReassemblyError : Buffer cleared
+        
+        state "Error Types" as ErrorTypes {
+            state "OrphanChunk" as Orphan
+            state "ChunksRemainingMismatch" as Mismatch
+            state "Timeout" as Timeout
+            state "BufferOverflow" as Overflow
+        }
+    }
+    
+    ' Transitions
+    WaitingForFirstChunk --> ReceivingChunks : FirstChunk received\n[ChunksRemaining > 0]
+    WaitingForFirstChunk --> Complete : SingleChunk received\n[ChunksRemaining == 0]
+    WaitingForFirstChunk --> ReassemblyError : OrphanChunk\n[no matching PacketId]
+    
+    ReceivingChunks --> ReceivingChunks : NextChunk received\n[ChunksRemaining > 0]
+    ReceivingChunks --> Complete : LastChunk received\n[ChunksRemaining == 0]
+    ReceivingChunks --> ReassemblyError : Timeout\n[no chunks received]
+    ReceivingChunks --> ReassemblyError : ChunksRemainingMismatch
+    
+    Complete --> WaitingForFirstChunk : Data delivered\n[buffer cleared]
+    
+    ReassemblyError --> WaitingForFirstChunk : Error handled\n[buffer cleared]
+}
+
+' ================================================================================
+' STATE MACHINE 4: DEVICE STATUS STATE MACHINE
+' ================================================================================
+
+newpage Device Status State Machine
+
+state "Device Status State Machine" as DeviceSM {
+    
+    note as DeviceNote
+        **Network Layer (Layer 3)**
+        Device discovery and tracking
+        
+        Discovery interval: 30 seconds
+        Device timeout: configurable
+    end note
+    
+    [*] --> Unknown : Device ID detected
+    
+    state Unknown <<waiting>> {
+        Unknown : First contact
+        Unknown : No history
+        Unknown : Awaiting confirmation
+    }
+    
+    state Online <<active>> {
+        Online : Device responding
+        Online : Route available
+        Online : LastSeen updated
+        
+        state "Heartbeat Tracking" as Heartbeat {
+            [*] --> Fresh
+            Fresh --> Stale : No activity\n[HeartbeatInterval]
+            Stale --> Fresh : Activity detected
+            Stale --> TimedOut : Timeout exceeded
+        }
+    }
+    
+    state Offline <<error>> {
+        Offline : No response
+        Offline : Route may be stale
+        Offline : Retry pending
+    }
+    
+    ' Transitions
+    Unknown --> Online : RegisterDevice()\n[first message received]
+    Unknown --> Offline : Timeout\n[no response]
+    
+    Online --> Online : UpdateHeartbeat()\n[message received]
+    Online --> Offline : DeviceTimeout\n[no response]
+    Online --> Unknown : UnregisterDevice()
+    
+    Offline --> Online : Message received\n[device responds]
+    Offline --> Unknown : Device removed\n[cleanup]
+    
+    ' Events
+    Unknown -[#blue,dashed]-> Online : <<event>>\nDeviceDiscovered
+    Online -[#red,dashed]-> Offline : <<event>>\nDeviceLost
+}
+
+' ================================================================================
+' STATE MACHINE 5: CHANNEL CONNECTION STATE MACHINE
+' ================================================================================
+
+newpage Channel Connection State Machine
+
+state "Channel Connection State Machine" as ChannelSM {
+    
+    note as ChannelNote
+        **Physical Layer (Layer 1)**
+        Channel driver connection states
+        
+        Channels:
+        • UART (Serial)
+        • CAN Bus
+        • Cloud/Internet
+    end note
+    
+    [*] --> Disconnected : Driver created
+    
+    state Disconnected <<waiting>> {
+        Disconnected : IsConnected = false
+        Disconnected : No active channel
+        Disconnected : Configuration pending
+    }
+    
+    state Connecting <<processing>> {
+        Connecting : Opening channel
+        Connecting : Configuring parameters
+        Connecting : Handshaking
+        
+        state "Connection Steps" as ConnSteps {
+            [*] --> OpenPort
+            OpenPort --> Configure : Port opened
+            Configure --> Handshake : Config applied
+            Handshake --> [*] : Handshake OK
+            
+            OpenPort --> ConnectionFailed : Port busy
+            Configure --> ConnectionFailed : Invalid config
+            Handshake --> ConnectionFailed : Handshake failed
+        }
+    }
+    
+    state Connected <<active>> {
+        Connected : IsConnected = true
+        Connected : Read/Write enabled
+        Connected : Monitoring active
+        
+        state "I/O Operations" as IOOps {
+            [*] --> Idle
+            Idle --> Reading : ReadAsync()
+            Idle --> Writing : WriteAsync()
+            Reading --> Idle : Data received
+            Writing --> Idle : Data sent
+            Reading --> Idle : Timeout
+        }
+    }
+    
+    state ConnectionFailed <<error>> {
+        ConnectionFailed : Connection error
+        ConnectionFailed : Retry possible
+        ConnectionFailed : Error logged
+    }
+    
+    state Reconnecting <<processing>> {
+        Reconnecting : Attempting reconnect
+        Reconnecting : Retry count tracking
+        Reconnecting : Backoff delay
+    }
+    
+    ' Transitions
+    Disconnected --> Connecting : ConnectAsync(config)
+    
+    Connecting --> Connected : Connection success
+    Connecting --> ConnectionFailed : Connection failed
+    
+    Connected --> Disconnected : Disconnect()
+    Connected --> ConnectionFailed : Connection lost
+    Connected --> Connected : Read/Write operations
+    
+    ConnectionFailed --> Reconnecting : Retry enabled
+    ConnectionFailed --> Disconnected : Retry disabled
+    
+    Reconnecting --> Connecting : Retry attempt
+    Reconnecting --> Disconnected : Max retries exceeded
+}
+
+' ================================================================================
+' STATE MACHINE 6: ROUTING STATE MACHINE
+' ================================================================================
+
+newpage Routing State Machine
+
+state "Routing State Machine" as RoutingSM {
+    
+    note as RoutingNote
+        **Network Layer (Layer 3)**
+        Route management and packet forwarding
+        
+        Max hops: 5 (default)
+        Route timeout: 600 seconds
+        Strategies: ShortestPath, LeastCost, LoadBalanced
+    end note
+    
+    [*] --> NoRoute : Destination requested
+    
+    state NoRoute <<waiting>> {
+        NoRoute : Route unknown
+        NoRoute : Discovery pending
+        NoRoute : May use direct routing
+    }
+    
+    state RouteDiscovery <<processing>> {
+        RouteDiscovery : Discovering route
+        RouteDiscovery : Broadcasting query
+        RouteDiscovery : Awaiting response
+    }
+    
+    state RouteKnown <<active>> {
+        RouteKnown : Route available
+        RouteKnown : Metrics tracked
+        RouteKnown : Ready for forwarding
+        
+        state "Route Quality" as RouteQuality {
+            [*] --> Optimal
+            Optimal --> Degraded : LinkQuality < threshold
+            Degraded --> Optimal : Quality improved
+            Degraded --> Unusable : Quality critical
+            Unusable --> Degraded : Partial recovery
+        }
+    }
+    
+    state RouteExpired <<error>> {
+        RouteExpired : Route timed out
+        RouteExpired : Needs refresh
+        RouteExpired : May still work
+    }
+    
+    ' Transitions
+    NoRoute --> RouteDiscovery : InitiateDiscovery()
+    NoRoute --> RouteKnown : AddRoute()\n[manual/learned]
+    
+    RouteDiscovery --> RouteKnown : Route discovered
+    RouteDiscovery --> NoRoute : Discovery timeout
+    
+    RouteKnown --> RouteKnown : Route updated\n[message received]
+    RouteKnown --> RouteExpired : RouteTimeout\n[no activity]
+    RouteKnown --> NoRoute : RemoveRoute()
+    
+    RouteExpired --> RouteKnown : Route refreshed
+    RouteExpired --> NoRoute : CleanupExpiredRoutes()
+    
+    ' Events
+    RouteKnown -[#green,dashed]-> RouteKnown : <<event>>\nRouteAdded
+    RouteKnown -[#orange,dashed]-> RouteKnown : <<event>>\nLinkQualityAlert
+}
+
+' ================================================================================
+' STATE MACHINE 7: ENCRYPTION STATE MACHINE
+' ================================================================================
+
+newpage Encryption State Machine
+
+state "Encryption State Machine" as CryptoSM {
+    
+    note as CryptoNote
+        **Presentation Layer (Layer 6)**
+        AES-128 ECB encryption
+        
+        Block size: 16 bytes
+        Key size: 16 bytes (128-bit)
+        Padding: PKCS7
+    end note
+    
+    [*] --> NoEncryption : CryptType = NO_CRYPT
+    [*] --> KeyRequired : CryptType = AES128
+    
+    state NoEncryption <<active>> {
+        NoEncryption : Encryption disabled
+        NoEncryption : Data passed through
+        NoEncryption : No key required
+    }
+    
+    state KeyRequired <<waiting>> {
+        KeyRequired : AES128 selected
+        KeyRequired : Waiting for key
+        KeyRequired : Cannot encrypt/decrypt
+    }
+    
+    state KeyConfigured <<active>> {
+        KeyConfigured : Key stored
+        KeyConfigured : Ready for operations
+        KeyConfigured : Key can be updated
+        
+        state "Operations" as CryptoOps {
+            [*] --> Ready
+            Ready --> Encrypting : Encrypt()
+            Ready --> Decrypting : Decrypt()
+            Encrypting --> Ready : Complete
+            Decrypting --> Ready : Complete
+        }
+    }
+    
+    state EncryptionError <<error>> {
+        EncryptionError : Operation failed
+        
+        state "Error Causes" as CryptoErrors {
+            state "KeyMissing" as KeyMissing
+            state "InvalidBlockSize" as InvalidBlock
+            state "PaddingError" as PaddingErr
+            state "KeySizeMismatch" as KeySize
+        }
+    }
+    
+    ' Transitions
+    NoEncryption --> KeyRequired : CryptType changed\nto AES128
+    NoEncryption --> NoEncryption : Process message\n[passthrough]
+    
+    KeyRequired --> KeyConfigured : SetKey(AES128, key)
+    KeyRequired --> EncryptionError : Encrypt/Decrypt\n[no key]
+    
+    KeyConfigured --> KeyConfigured : SetKey()\n[update key]
+    KeyConfigured --> KeyConfigured : Encrypt/Decrypt\n[success]
+    KeyConfigured --> EncryptionError : Operation failed
+    KeyConfigured --> NoEncryption : CryptType changed\nto NO_CRYPT
+    
+    EncryptionError --> KeyRequired : Reset
+    EncryptionError --> KeyConfigured : Key provided
+}
+
+' ================================================================================
+' STATE MACHINE 8: BROADCAST HANDLING STATE MACHINE
+' ================================================================================
+
+newpage Broadcast Handling State Machine
+
+state "Broadcast Handling State Machine" as BroadcastSM {
+    
+    note as BroadcastNote
+        **Network Layer (Layer 3)**
+        Duplicate broadcast detection
+        
+        History size: 100 entries
+        Broadcast ID: SenderId + Timestamp
+    end note
+    
+    [*] --> NoBroadcast : Normal operation
+    
+    state NoBroadcast <<waiting>> {
+        NoBroadcast : No broadcast pending
+        NoBroadcast : Monitoring for broadcasts
+    }
+    
+    state BroadcastReceived <<processing>> {
+        BroadcastReceived : Broadcast detected
+        BroadcastReceived : DestId = 0xFFFFFFFF
+        BroadcastReceived : Checking history
+    }
+    
+    state NewBroadcast <<active>> {
+        NewBroadcast : First occurrence
+        NewBroadcast : Add to history
+        NewBroadcast : Process message
+    }
+    
+    state DuplicateBroadcast <<error>> {
+        DuplicateBroadcast : Already processed
+        DuplicateBroadcast : Reject message
+        DuplicateBroadcast : Update statistics
+    }
+    
+    state HistoryMaintenance <<processing>> {
+        HistoryMaintenance : Cleanup old entries
+        HistoryMaintenance : Manage history size
+        HistoryMaintenance : Remove expired
+    }
+    
+    ' Transitions
+    NoBroadcast --> BroadcastReceived : Broadcast message\nreceived
+    NoBroadcast --> NoBroadcast : Unicast message\nreceived
+    
+    BroadcastReceived --> NewBroadcast : Not in history
+    BroadcastReceived --> DuplicateBroadcast : Already in history
+    
+    NewBroadcast --> NoBroadcast : Message processed\n[add to history]
+    
+    DuplicateBroadcast --> NoBroadcast : Message skipped\n[increment duplicates]
+    
+    NoBroadcast --> HistoryMaintenance : CleanupOldBroadcasts()
+    HistoryMaintenance --> NoBroadcast : Cleanup complete
+}
+
+' ================================================================================
+' STATE MACHINE 9: PACKET ID GENERATOR STATE MACHINE
+' ================================================================================
+
+newpage Packet ID Generator State Machine
+
+state "Packet ID Generator State Machine" as PacketIdSM {
+    
+    note as PacketIdNote
+        **Transport Layer (Layer 4)**
+        Rolling packet ID (1-7)
+        
+        Used for chunk tracking
+        and reassembly correlation
+    end note
+    
+    [*] --> ID1 : Initial state
+    
+    state ID1 <<active>> {
+        ID1 : CurrentId = 1
+    }
+    
+    state ID2 <<active>> {
+        ID2 : CurrentId = 2
+    }
+    
+    state ID3 <<active>> {
+        ID3 : CurrentId = 3
+    }
+    
+    state ID4 <<active>> {
+        ID4 : CurrentId = 4
+    }
+    
+    state ID5 <<active>> {
+        ID5 : CurrentId = 5
+    }
+    
+    state ID6 <<active>> {
+        ID6 : CurrentId = 6
+    }
+    
+    state ID7 <<active>> {
+        ID7 : CurrentId = 7
+    }
+    
+    ' Circular transitions
+    ID1 --> ID2 : NextId()
+    ID2 --> ID3 : NextId()
+    ID3 --> ID4 : NextId()
+    ID4 --> ID5 : NextId()
+    ID5 --> ID6 : NextId()
+    ID6 --> ID7 : NextId()
+    ID7 --> ID1 : NextId() [wrap around]
+    
+    ' Reset
+    ID2 --> ID1 : Reset()
+    ID3 --> ID1 : Reset()
+    ID4 --> ID1 : Reset()
+    ID5 --> ID1 : Reset()
+    ID6 --> ID1 : Reset()
+    ID7 --> ID1 : Reset()
+    
+    note right of ID7
+        After ID 7, wraps
+        back to ID 1
+        (never uses 0)
+    end note
+}
+
+' ================================================================================
+' STATE MACHINE 10: LAYER RESULT STATE MACHINE
+' ================================================================================
+
+newpage Layer Result State Machine
+
+state "Layer Result State Machine" as ResultSM {
+    
+    note as ResultNote
+        **All Layers**
+        Processing result states
+        
+        Returned from:
+        • ProcessUpstreamAsync()
+        • ProcessDownstreamAsync()
+    end note
+    
+    [*] --> Processing : Layer operation starts
+    
+    state Processing <<processing>> {
+        Processing : Operation in progress
+        Processing : Data transformation
+        Processing : Validation checks
+    }
+    
+    state Success <<active>> {
+        Success : Status = Success
+        Success : Data transformed
+        Success : Continue to next layer
+        
+        Success : IsSuccess = true
+        Success : IsError = false
+        Success : NeedsMoreData = false
+    }
+    
+    state Incomplete <<waiting>> {
+        Incomplete : Status = Incomplete
+        Incomplete : Waiting for more data
+        Incomplete : Partial processing
+        
+        Incomplete : IsSuccess = false
+        Incomplete : IsError = false
+        Incomplete : NeedsMoreData = true
+        
+        note right
+            Common for:
+            • Chunk reassembly
+            • Frame parsing
+            • Buffer operations
+        end note
+    }
+    
+    state Skipped <<waiting>> {
+        Skipped : Status = Skipped
+        Skipped : Data passed through
+        Skipped : No processing needed
+        
+        Skipped : IsSuccess = true
+        Skipped : Data unchanged
+        
+        note right
+            Used for:
+            • Duplicate broadcasts
+            • Passthrough encryption
+            • Non-matching handlers
+        end note
+    }
+    
+    state Error <<error>> {
+        Error : Status = Error
+        Error : Operation failed
+        Error : ErrorMessage set
+        
+        Error : IsSuccess = false
+        Error : IsError = true
+        Error : Exception may be set
+    }
+    
+    ' Transitions
+    Processing --> Success : Operation complete\n[data transformed]
+    Processing --> Incomplete : More data needed\n[partial result]
+    Processing --> Skipped : No action required\n[pass through]
+    Processing --> Error : Operation failed\n[error details]
+    
+    ' Factory methods
+    [*] -[#green,dashed]-> Success : LayerResult.Success(data)
+    [*] -[#blue,dashed]-> Incomplete : LayerResult.Incomplete()
+    [*] -[#gray,dashed]-> Skipped : LayerResult.Skipped(data)
+    [*] -[#red,dashed]-> Error : LayerResult.Error(message)
+}
+
+' ================================================================================
+' LEGEND
+' ================================================================================
+
+newpage Legend and State Colors
+
+state "Legend" as Legend {
+    
+    note as LegendNote
+        **STEM Communication Protocol**
+        **State Machine Diagram Legend**
+        ====
+        
+        **State Colors**
+        ----
+        ?? <<active>> #C8E6C9 - Active/Ready state
+        ?? <<error>> #FFCDD2 - Error/Failed state
+        ?? <<waiting>> #E1F5FE - Waiting/Idle state
+        ?? <<processing>> #FFF3E0 - Processing/Transitional state
+        
+        **Transition Types**
+        ----
+        ??? Solid line: Normal transition
+        - - Dashed line: Event trigger
+        
+        **Arrow Colors**
+        ----
+        Black: Standard transition
+        Blue: Initialization/Setup
+        Green: Success event
+        Red: Error/Termination event
+        Orange: Warning event
+        
+        **Key Constants**
+        ----
+        • Packet ID Range: 1-7 (rolling)
+        • Session Timeout: 600 seconds
+        • Heartbeat Interval: 2 seconds
+        • Route Timeout: 600 seconds
+        • Max Hops: 5
+        • Broadcast History: 100 entries
+        
+        **State Machine Scopes**
+        ----
+        • Session: Layer 5 connection lifecycle
+        • Layer Lifecycle: All 7 layers
+        • Reassembly: Layer 4 chunking
+        • Device Status: Layer 3 discovery
+        • Channel: Layer 1 connection
+        • Routing: Layer 3 forwarding
+        • Encryption: Layer 6 security
+        • Broadcast: Layer 3 duplicate detection
+        • PacketId: Layer 4 ID generation
+        • LayerResult: All layers result
+    end note
+}
+
+@enduml

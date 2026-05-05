@@ -1,0 +1,1191 @@
+@startuml STEM Communication Protocol - Class Diagram
+!theme plain
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+skinparam groupInheritance 2
+
+title STEM Communication Protocol - Complete Class Diagram
+caption Protocol v2.0 - OSI 7-Layer Architecture
+
+' ================================================================================
+' CORE PACKAGE
+' ================================================================================
+package "Core" #FAFAFA {
+    
+    package "Core.Enums" {
+        enum CryptType {
+            NO_CRYPT = 0
+            AES128 = 1
+            N_CRYPT = 2
+        }
+        
+        enum StemDevice <<uint>> {
+            SRID_SHERPA_SLIM = 0x00010041
+            SRID_EDEN = 0x00030141
+            SRID_SPYKE_GATEWAY = 0x000501C1
+            SRID_BROADCAST = 0xFFFFFFFF
+            ... (more devices)
+        }
+    }
+    
+    package "Core.Models" {
+        class ProtocolConstants <<static>> {
+            + {static} PROTOCOL_VERSION : int = 0
+            + {static} PROTOCOL_LAYER_COUNT : int = 7
+            + {static} LAYER_OPERATION_TIMEOUT_MS : int = 5000
+            + {static} MAX_LAYER_RETRIES : int = 3
+            + {static} MIN_PACKET_SIZE : int = 8
+            + {static} ENABLE_DETAILED_LOGGING : bool
+        }
+        
+        struct MessageMetadata <<readonly>> {
+            + ProtocolVersion : byte
+            + CryptType : CryptType
+            + SenderId : uint
+            --
+            + MessageMetadata(cryptType, senderId, version)
+            + Equals(other: MessageMetadata) : bool
+        }
+    }
+}
+
+' ================================================================================
+' BASE LAYER PACKAGE
+' ================================================================================
+package "Layers.Base" #E8F5E9 {
+    
+    interface IProtocolLayer {
+        + LayerName : string <<readonly>>
+        + LayerLevel : int <<readonly>>
+        + IsInitialized : bool <<readonly>>
+        + UpperLayer : IProtocolLayer?
+        + LowerLayer : IProtocolLayer?
+        --
+        + InitializeAsync(config: LayerConfiguration?) : Task<bool>
+        + Shutdown() : void
+        + ProcessUpstreamAsync(data: byte[], context: LayerContext) : Task<LayerResult>
+        + ProcessDownstreamAsync(data: byte[], context: LayerContext) : Task<LayerResult>
+        + AttachUpperLayer(upperLayer: IProtocolLayer?) : void
+        + AttachLowerLayer(lowerLayer: IProtocolLayer?) : void
+    }
+    
+    package "Base.Enums" {
+        enum LayerStatus {
+            Success
+            Error
+            Incomplete
+            Skipped
+        }
+        
+        enum FlowDirection {
+            Upstream
+            Downstream
+        }
+    }
+    
+    package "Base.Models" {
+        class LayerConfiguration {
+            + EnableDetailedLogging : bool
+            + TimeoutMs : int
+            + MaxRetries : int
+        }
+        
+        struct LayerResult <<readonly>> {
+            + Status : LayerStatus
+            + Data : byte[]?
+            + ErrorMessage : string?
+            + Exception : Exception?
+            + Metadata : IReadOnlyDictionary<string, object>?
+            --
+            + IsSuccess : bool <<readonly>>
+            + IsError : bool <<readonly>>
+            + NeedsMoreData : bool <<readonly>>
+            --
+            + {static} Success(data: byte[], metadata?) : LayerResult
+            + {static} Error(message: string, exception?) : LayerResult
+            + {static} Incomplete() : LayerResult
+            + {static} Skipped(data: byte[]) : LayerResult
+        }
+        
+        class LayerContext {
+            + TransactionId : Guid
+            + Timestamp : DateTime
+            + SenderId : uint
+            + DestinationId : uint
+            + CryptType : CryptType
+            + ChannelType : ChannelType
+            + Direction : FlowDirection
+            + OriginalPayloadLength : int?
+            + PacketId : byte?
+            + NextHop : uint?
+            + HopCount : int
+            + Priority : PacketPriority
+            + ExtendedMetadata : Dictionary<string, object>
+            --
+            + SetMetadata(key: string, value: object) : void
+            + GetMetadata<T>(key: string) : T?
+        }
+    }
+}
+
+' ================================================================================
+' PHYSICAL LAYER (Layer 1)
+' ================================================================================
+package "Layers.PhysicalLayer" #E3F2FD {
+    
+    class PhysicalLayer implements IProtocolLayer {
+        - _txBuffer : ProtocolTxBuffer
+        - _rxBuffer : ProtocolRxBuffer
+        - _channelDriver : IChannelDriver?
+        --
+        + LayerName : string = "Physical"
+        + LayerLevel : int = 1
+        + IsInitialized : bool
+        + UpperLayer : IProtocolLayer?
+        + LowerLayer : IProtocolLayer? = null
+        --
+        + PhysicalLayer(channelDriver?: IChannelDriver)
+        + InitializeAsync(config?: LayerConfiguration) : Task<bool>
+        + Shutdown() : void
+        + ProcessUpstreamAsync(data: byte[], context: LayerContext) : Task<LayerResult>
+        + ProcessDownstreamAsync(data: byte[], context: LayerContext) : Task<LayerResult>
+        + AttachUpperLayer(upperLayer?: IProtocolLayer) : void
+        + AttachLowerLayer(lowerLayer?: IProtocolLayer) : void
+        - CreateChannelDriver(channelType: ChannelType) : IChannelDriver
+    }
+    
+    package "PhysicalLayer.Interfaces" {
+        interface IChannelDriver {
+            + IsConnected : bool <<readonly>>
+            --
+            + ConnectAsync(config: PhysicalLayerConfiguration) : Task<bool>
+            + Disconnect() : void
+            + ReadAsync() : Task<byte[]?>
+            + WriteAsync(data: byte[]) : Task
+        }
+    }
+    
+    package "PhysicalLayer.Enums" {
+        enum ChannelType {
+            UART_CHANNEL = 0
+            CAN_CHANNEL = 1
+            CLOUD_CHANNEL = 2
+        }
+    }
+    
+    package "PhysicalLayer.Models" {
+        class PhysicalLayerConfiguration extends LayerConfiguration {
+            + ChannelType : ChannelType
+            + TxBufferSize : int
+            + RxBufferSize : int
+            + PortName : string?
+            + BaudRate : int
+        }
+        
+        class PhysicalLayerConstants <<static>> {
+            + {static} TX_BUFFER_MAX_LENGTH : int = 1100
+            + {static} RX_BUFFER_MAX_LENGTH : int = 1100
+            + {static} DEFAULT_UART_BAUDRATE : int = 115200
+            + {static} DEFAULT_CAN_BAUDRATE : int = 500000
+            + {static} CHANNEL_READ_TIMEOUT_MS : int = 1000
+            + {static} CHANNEL_WRITE_TIMEOUT_MS : int = 1000
+        }
+        
+        class ProtocolRxBuffer {
+            - _buffer : byte[]
+            - _lock : Lock
+            - _writePosition : int
+            - _readPosition : int
+            - _dataLength : int
+            --
+            + Capacity : int <<readonly>>
+            + Available : int <<readonly>>
+            + FreeSpace : int <<readonly>>
+            + IsEmpty : bool <<readonly>>
+            + IsFull : bool <<readonly>>
+            + Statistics : BufferStatistics
+            --
+            + ProtocolRxBuffer(capacity: int)
+            + Write(data: byte[]) : int
+            + Write(data: byte[], offset: int, count: int) : int
+            + Read(count: int) : byte[]
+            + Peek(count: int) : byte[]
+            + Clear() : void
+        }
+        
+        class ProtocolTxBuffer {
+            - _buffer : byte[]
+            - _lock : Lock
+            - _position : int
+            --
+            + Capacity : int <<readonly>>
+            + Length : int
+            + Available : int <<readonly>>
+            + IsEmpty : bool <<readonly>>
+            + IsFull : bool <<readonly>>
+            --
+            + ProtocolTxBuffer(capacity: int)
+            + Write(data: byte[]) : int
+            + Write(data: byte[], offset: int, count: int) : int
+            + Peek(count: int) : byte[]
+            + Clear() : void
+        }
+        
+        class BufferStatistics {
+            + BytesWritten : long
+            + BytesRead : long
+            + BytesDiscarded : long
+            + Overflows : long
+            + LastWriteTime : DateTime?
+            + LastReadTime : DateTime?
+            --
+            + Utilization(capacity: int) : double
+        }
+    }
+    
+    PhysicalLayer --> IChannelDriver : uses
+    PhysicalLayer *-- ProtocolTxBuffer
+    PhysicalLayer *-- ProtocolRxBuffer
+    ProtocolRxBuffer --> BufferStatistics : has
+}
+
+' ================================================================================
+' DATA LINK LAYER (Layer 2)
+' ================================================================================
+package "Layers.DataLinkLayer" #FFF3E0 {
+    
+    class DataLinkLayer implements IProtocolLayer {
+        + LayerName : string = "DataLink"
+        + LayerLevel : int = 2
+        + IsInitialized : bool
+        + UpperLayer : IProtocolLayer?
+        + LowerLayer : IProtocolLayer?
+        --
+        + InitializeAsync(config?: LayerConfiguration) : Task<bool>
+        + Shutdown() : void
+        + ProcessUpstreamAsync(data: byte[], context: LayerContext) : Task<LayerResult>
+        + ProcessDownstreamAsync(data: byte[], context: LayerContext) : Task<LayerResult>
+        + AttachUpperLayer(upperLayer?: IProtocolLayer) : void
+        + AttachLowerLayer(lowerLayer?: IProtocolLayer) : void
+    }
+    
+    package "DataLinkLayer.Models" {
+        class DataLinkFrame {
+            - _data : byte[]
+            --
+            + Crypt : CryptType
+            + SenderId : uint
+            + Length : ushort
+            + Data : byte[]
+            + Crc16High : byte
+            + Crc16Low : byte
+            + Crc16 : ushort
+            + TotalSize : int <<readonly>>
+            + Timestamp : DateTime
+            + RetransmissionCount : int
+            + IsRetransmission : bool <<readonly>>
+        }
+        
+        class DataLinkLayerConstants <<static>> {
+            + {static} HEADER_SIZE : int = 7
+            + {static} CRC_SIZE : int = 2
+            + {static} CRYPT_OFFSET : int = 0
+            + {static} SENDER_ID_OFFSET : int = 1
+            + {static} LENGTH_OFFSET : int = 5
+            + {static} DATA_OFFSET : int = 7
+        }
+        
+        struct ParseResult <<readonly>> {
+            + IsSuccess : bool
+            + Frame : DataLinkFrame
+            + Error : ParseError
+            --
+            + {static} Success(frame: DataLinkFrame) : ParseResult
+            + {static} Failure(error: ParseError) : ParseResult
+        }
+        
+        enum ParseError {
+            None = 0
+            NullBuffer
+            BufferTooShort
+            LengthExceedsMaximum
+            LengthMismatch
+        }
+    }
+    
+    package "DataLinkLayer.Helpers" {
+        class DataLinkFrameBuilder <<static>> {
+            + {static} Build(crypt: CryptType, senderId: uint, data: byte[]) : DataLinkFrame
+            - {static} CalculateCrc(frame: DataLinkFrame) : ushort
+        }
+        
+        class DataLinkFrameParser <<static>> {
+            + {static} Parse(buffer: byte[]) : ParseResult
+        }
+        
+        class DataLinkFrameValidator <<static>> {
+            + {static} ValidateCrc(frame: DataLinkFrame) : bool
+            + {static} ValidateCrc(buffer: byte[]) : bool
+            + {static} CalculateCrc(frame: DataLinkFrame) : ushort
+        }
+        
+        class DataLinkFrameSerializer <<static>> {
+            + {static} Serialize(frame: DataLinkFrame) : byte[]
+            + {static} Deserialize(buffer: byte[]) : DataLinkFrame
+        }
+        
+        class Crc16Calculator {
+            - _crc : ushort
+            --
+            + Value : ushort <<readonly>>
+            + HighByte : byte <<readonly>>
+            + LowByte : byte <<readonly>>
+            --
+            + Clear() : void
+            + Update(data: byte) : void
+            + Update(data: byte[]) : void
+            + {static} Compute(data: byte[]) : ushort
+        }
+    }
+    
+    DataLinkLayer ..> DataLinkFrameBuilder : uses
+    DataLinkLayer ..> DataLinkFrameParser : uses
+    DataLinkLayer ..> DataLinkFrameValidator : uses
+    DataLinkLayer ..> DataLinkFrameSerializer : uses
+    DataLinkFrameBuilder ..> Crc16Calculator : uses
+    DataLinkFrameValidator ..> Crc16Calculator : uses
+}
+
+' ================================================================================
+' NETWORK LAYER (Layer 3)
+' ================================================================================
+package "Layers.NetworkLayer" #F3E5F5 {
+    
+    class NetworkLayer implements IProtocolLayer {
+        - _routingTableManager : RoutingTableManager
+        - _deviceDiscovery : IDeviceDiscoveryService
+        - _broadcastManager : IBroadcastManager
+        - _routeCalculator : RouteCalculator
+        - _metricsCollector : NetworkMetricsCollector
+        - _config : NetworkLayerConfiguration
+        --
+        + LayerName : string = "Network"
+        + LayerLevel : int = 3
+        + IsInitialized : bool
+        + UpperLayer : IProtocolLayer?
+        + LowerLayer : IProtocolLayer?
+        --
+        + <<event>> DeviceDiscovered : EventHandler<DeviceDiscoveredEventArgs>
+        + <<event>> RouteAdded : EventHandler<RouteAddedEventArgs>
+        --
+        + NetworkLayer()
+        + NetworkLayer(routingTableManager, deviceDiscovery, broadcastManager, routeCalculator, metricsCollector)
+        + InitializeAsync(config?: LayerConfiguration) : Task<bool>
+        + Shutdown() : void
+        + ProcessUpstreamAsync(data: byte[], context: LayerContext) : Task<LayerResult>
+        + ProcessDownstreamAsync(data: byte[], context: LayerContext) : Task<LayerResult>
+        + AddRoute(destinationId: uint, nextHop: uint, hopCount: int) : void
+        + RemoveRoute(destinationId: uint) : bool
+        + HasRoute(destinationId: uint) : bool
+    }
+    
+    package "NetworkLayer.Interfaces" {
+        interface IDeviceDiscoveryService {
+            + <<event>> DeviceDiscovered : EventHandler<DeviceDiscoveredEventArgs>
+            + <<event>> DeviceLost : EventHandler<DeviceLostEventArgs>
+            --
+            + RegisterDevice(deviceId: uint, context: LayerContext) : bool
+            + UnregisterDevice(deviceId: uint) : bool
+            + IsDeviceKnown(deviceId: uint) : bool
+            + GetKnownDevices() : IReadOnlySet<uint>
+            + UpdateDeviceHeartbeat(deviceId: uint) : void
+            + GetDeviceLastSeen(deviceId: uint) : DateTime?
+            + GetDeviceStatus(deviceId: uint) : DeviceStatus
+            + Clear() : void
+        }
+        
+        interface IBroadcastManager {
+            + IsBroadcastProcessed(senderId: uint, timestamp: DateTime) : bool
+            + MarkBroadcastProcessed(senderId: uint, timestamp: DateTime) : void
+            + GetStatistics() : BroadcastStatistics
+            + CleanupOldBroadcasts() : int
+            + GetBroadcastAge(senderId: uint, timestamp: DateTime) : TimeSpan?
+            + Clear() : void
+        }
+    }
+    
+    package "NetworkLayer.Enums" {
+        enum RoutingStrategy {
+            ShortestPath
+            LeastCost
+            LoadBalanced
+        }
+        
+        enum DeviceStatus {
+            Unknown
+            Online
+            Offline
+        }
+        
+        enum PacketPriority {
+            Low
+            Normal
+            High
+        }
+        
+        enum MetricsFormat {
+            Json
+            Compact
+        }
+    }
+    
+    package "NetworkLayer.Models" {
+        class NetworkLayerConfiguration extends LayerConfiguration {
+            + LocalDeviceId : uint
+            + EnableRouting : bool
+            + EnableBroadcast : bool
+            + EnableDeviceDiscovery : bool
+            + MaxHops : int
+            + RoutingTableTimeout : TimeSpan
+        }
+        
+        class NetworkLayerConstants <<static>> {
+            + {static} MAX_HOPS_DEFAULT : int = 5
+            + {static} ROUTING_TABLE_TIMEOUT_SECONDS : int = 600
+            + {static} BROADCAST_HISTORY_SIZE : int = 100
+            + {static} DEVICE_DISCOVERY_INTERVAL_SECONDS : int = 30
+        }
+        
+        class RouteInfo {
+            + NextHop : uint
+            + HopCount : int
+            + LastUpdated : DateTime
+            + Metrics : RouteMetrics?
+        }
+        
+        class RouteMetrics {
+            + LinkQuality : double
+            + Latency : int
+            + PacketsSent : long
+            + PacketsReceived : long
+            + PacketsLost : long
+            + AverageLatencyMs : int
+        }
+        
+        class DeviceInfo {
+            + DeviceId : uint
+            + FirstSeen : DateTime
+            + LastSeen : DateTime
+            + Status : DeviceStatus
+        }
+        
+        class BroadcastStatistics {
+            + TotalProcessed : int
+            + DuplicatesRejected : int
+        }
+        
+        class ForwardingRequest {
+            + Data : byte[]
+            + Context : LayerContext
+            + NextHop : uint?
+            + Priority : PacketPriority
+            + RetryCount : int
+        }
+        
+        class DeviceDiscoveredEventArgs extends EventArgs {
+            + DeviceId : uint
+            + Context : LayerContext
+        }
+        
+        class DeviceLostEventArgs extends EventArgs {
+            + DeviceId : uint
+        }
+        
+        class RouteAddedEventArgs extends EventArgs {
+            + DestinationId : uint
+            + NextHop : uint
+            + HopCount : int
+        }
+        
+        class LinkQualityAlertEventArgs extends EventArgs {
+            + DeviceId : uint
+            + LinkQuality : double
+        }
+    }
+    
+    package "NetworkLayer.Helpers" {
+        class RoutingTableManager {
+            - _routes : ConcurrentDictionary<uint, RouteInfo>
+            - _routeTimeout : TimeSpan
+            --
+            + RoutingTableManager(timeout?: TimeSpan)
+            + AddRoute(destinationId: uint, nextHop: uint, hopCount: int, linkQuality: double) : void
+            + RemoveRoute(destinationId: uint) : bool
+            + HasRoute(destinationId: uint) : bool
+            + GetRoute(destinationId: uint) : RouteInfo?
+            + GetAllRoutes() : IReadOnlyDictionary<uint, RouteInfo>
+            + Clear() : void
+            + CleanupExpiredRoutes() : int
+        }
+        
+        class DeviceDiscoveryService implements IDeviceDiscoveryService {
+            - _devices : ConcurrentDictionary<uint, DeviceInfo>
+            - _deviceTimeout : TimeSpan
+            --
+            + DeviceDiscoveryService(timeout?: TimeSpan)
+            + GetDeviceInfo(deviceId: uint) : DeviceInfo?
+        }
+        
+        class BroadcastManager implements IBroadcastManager {
+            - _processedBroadcasts : ConcurrentDictionary<uint, DateTime>
+            - _maxHistorySize : int
+            - _broadcastTimeout : TimeSpan
+            --
+            + BroadcastManager(historySize: int, timeout?: TimeSpan)
+            + {static} GenerateBroadcastId(senderId: uint, timestamp: DateTime) : uint
+        }
+        
+        class RouteCalculator {
+            - _strategy : RoutingStrategy
+            - _minLinkQuality : double
+            - _maxHops : int
+            --
+            + RouteCalculator(strategy: RoutingStrategy, minLinkQuality: double, maxHops: int)
+            + CalculateNextHop(destinationId: uint, routingTable: IReadOnlyDictionary<uint, RouteInfo>) : uint?
+            + CalculateBestPath(routes: IEnumerable<RouteInfo>) : RouteInfo?
+            + IsRouteViable(route: RouteInfo) : bool
+            + {static} CalculateRouteCost(route: RouteInfo) : double
+        }
+        
+        class PacketForwarder {
+            - _maxHops : int
+            - _maxRetries : int
+            - _maxForwardsPerSecond : int
+            --
+            + PacketForwarder(maxHops: int, maxRetries: int, maxForwardsPerSecond: int, enablePriorityQueue: bool)
+            + ForwardPacketAsync(data: byte[], context: LayerContext, nextHop?: uint) : Task<LayerResult>
+            + GetStatistics() : ForwardingStatistics
+        }
+        
+        class NetworkMetricsCollector {
+            - _deviceMetrics : ConcurrentDictionary<uint, DeviceMetrics>
+            - _linkQualityThreshold : double
+            --
+            + <<event>> LinkQualityAlert : EventHandler<LinkQualityAlertEventArgs>
+            --
+            + NetworkMetricsCollector(linkQualityThreshold: double, enableTrending: bool)
+            + RecordPacketSent(deviceId: uint) : void
+            + RecordPacketReceived(deviceId: uint) : void
+            + RecordPacketLost(deviceId: uint, count: int) : void
+            + RecordLatency(deviceId: uint, latencyMs: int) : void
+            + RecordThroughput(deviceId: uint, bytes: int) : void
+            + CalculateLinkQuality(deviceId: uint) : double
+            + ResetAllMetrics() : void
+        }
+    }
+    
+    NetworkLayer *-- RoutingTableManager
+    NetworkLayer --> IDeviceDiscoveryService
+    NetworkLayer --> IBroadcastManager
+    NetworkLayer *-- RouteCalculator
+    NetworkLayer *-- NetworkMetricsCollector
+}
+
+' ================================================================================
+' TRANSPORT LAYER (Layer 4)
+' ================================================================================
+package "Layers.TransportLayer" #FFEBEE {
+    
+    class TransportLayer implements IProtocolLayer {
+        - _chunker : PacketChunker
+        - _reassembler : ChunkReassembler
+        - _packetIdGenerator : PacketIdGenerator
+        - _config : TransportLayerConfiguration
+        --
+        + LayerName : string = "Transport"
+        + LayerLevel : int = 4
+        + IsInitialized : bool
+        + UpperLayer : IProtocolLayer?
+        + LowerLayer : IProtocolLayer?
+        --
+        + TransportLayer()
+        + InitializeAsync(config?: LayerConfiguration) : Task<bool>
+        + Shutdown() : void
+        + ProcessUpstreamAsync(data: byte[], context: LayerContext) : Task<LayerResult>
+        + ProcessDownstreamAsync(data: byte[], context: LayerContext) : Task<LayerResult>
+    }
+    
+    package "TransportLayer.Enums" {
+        enum ReassemblyError {
+            None = 0
+            ChunksRemainingMismatch
+            UnexpectedFirstChunk
+            OrphanChunk
+        }
+    }
+    
+    package "TransportLayer.Models" {
+        class TransportLayerConfiguration extends LayerConfiguration {
+            + MaxChunkDataSize : int
+            + MaxChunksPerPacket : int
+        }
+        
+        class TransportLayerConstants <<static>> {
+            + {static} MAX_CHUNK_DATA_SIZE : int = 200
+            + {static} MAX_CHUNKS_PER_PACKET : int = 1023
+            + {static} MIN_PACKET_ID : byte = 1
+            + {static} MAX_PACKET_ID : byte = 7
+            + {static} HEADER_SIZE : int = 6
+            + {static} CHUNK_METADATA_OFFSET : int = 0
+            + {static} ID_OFFSET : int = 2
+            + {static} DATA_OFFSET : int = 6
+        }
+        
+        class TransportChunk {
+            - _data : byte[]
+            --
+            + Metadata : ChunkMetadata
+            + DestinationId : uint
+            + Data : byte[]
+            + DataLength : int <<readonly>>
+            + TotalSize : int <<readonly>>
+        }
+        
+        struct ChunkMetadata {
+            - _packed : ushort
+            --
+            + Version : byte
+            + PacketId : byte
+            + SetLength : byte
+            + ChunksRemaining : ushort
+            + IsFirstChunk : bool <<readonly>>
+            + IsLastChunk : bool <<readonly>>
+            --
+            + ToUInt16() : ushort
+            + {static} FromUInt16(value: ushort) : ChunkMetadata
+        }
+        
+        struct ReassemblyResult <<readonly>> {
+            + IsComplete : bool
+            + HasError : bool
+            + Error : ReassemblyError
+            + Data : byte[]
+            + DestinationId : uint
+            --
+            + {static} Complete(data: byte[], destinationId: uint) : ReassemblyResult
+            + {static} Incomplete() : ReassemblyResult
+            + {static} Failure(error: ReassemblyError) : ReassemblyResult
+        }
+    }
+    
+    package "TransportLayer.Helpers" {
+        class PacketChunker {
+            - _chunkDataSize : int
+            --
+            + PacketChunker(chunkDataSize: int)
+            + Split(payload: byte[], destinationId: uint, packetId: byte) : List<TransportChunk>
+            + CalculateChunkCount(payloadLength: int) : int
+        }
+        
+        class ChunkReassembler {
+            - _packetBuffers : Dictionary<byte, PacketBuffer>
+            - _lock : Lock
+            --
+            + AddChunk(chunk: TransportChunk) : ReassemblyResult
+            + Clear() : void
+            + GetPendingPacketIds() : IEnumerable<byte>
+        }
+        
+        class PacketIdGenerator {
+            - _currentId : int
+            --
+            + CurrentId : byte <<readonly>>
+            --
+            + NextId() : byte
+            + Reset() : void
+        }
+        
+        class ChunkSerializer <<static>> {
+            + {static} Serialize(chunk: TransportChunk) : byte[]
+            + {static} Deserialize(buffer: byte[]) : TransportChunk
+        }
+    }
+    
+    TransportLayer *-- PacketChunker
+    TransportLayer *-- ChunkReassembler
+    TransportLayer *-- PacketIdGenerator
+    TransportLayer ..> ChunkSerializer : uses
+}
+
+' ================================================================================
+' SESSION LAYER (Layer 5)
+' ================================================================================
+package "Layers.SessionLayer" #E8EAF6 {
+    
+    class SessionLayer implements IProtocolLayer, IDisposable {
+        - _shutdownLock : Lock
+        - _sessionManager : SessionManager?
+        - _heartbeatTimer : Timer?
+        - _isShuttingDown : bool
+        - _disposed : bool
+        - _config : SessionLayerConfiguration
+        --
+        + LayerName : string = "Session"
+        + LayerLevel : int = 5
+        + IsInitialized : bool
+        + UpperLayer : IProtocolLayer?
+        + LowerLayer : IProtocolLayer?
+        + State : SessionState
+        + LocalDeviceId : uint
+        + RemoteDeviceId : uint
+        + IsSessionActive : bool
+        + Manager : SessionManager?
+        --
+        + InitializeAsync(config?: LayerConfiguration) : Task<bool>
+        + Shutdown() : void
+        + ProcessUpstreamAsync(data: byte[], context: LayerContext) : Task<LayerResult>
+        + ProcessDownstreamAsync(data: byte[], context: LayerContext) : Task<LayerResult>
+        + OpenSession(remoteDeviceId: uint) : void
+        + CloseSession() : void
+        + IsSessionExpired() : bool
+        + {static} CalculateDeviceId(network: byte, machine: byte, boardType: ushort, boardNumber: byte) : uint
+        + Dispose() : void
+    }
+    
+    package "SessionLayer.Enums" {
+        enum SessionState {
+            Disconnected
+            Initialized
+            Connected
+            Closing
+        }
+    }
+    
+    package "SessionLayer.Models" {
+        class SessionLayerConfiguration extends LayerConfiguration {
+            + LocalDeviceId : uint
+            + SessionTimeout : TimeSpan
+            + EnableHeartbeat : bool
+            + HeartbeatInterval : TimeSpan
+        }
+        
+        class SessionLayerConstants <<static>> {
+            + {static} SESSION_TIMEOUT_SECONDS : int = 600
+            + {static} HEARTBEAT_INTERVAL_SECONDS : int = 2
+        }
+        
+        class StateChangedEventArgs extends EventArgs {
+            + OldState : SessionState
+            + NewState : SessionState
+            + Timestamp : DateTime
+        }
+        
+        class SessionEstablishedEventArgs extends EventArgs {
+            + LocalDeviceId : uint
+            + RemoteDeviceId : uint
+            + Timestamp : DateTime
+        }
+        
+        class SessionTerminatedEventArgs extends EventArgs {
+            + RemoteDeviceId : uint
+            + Duration : TimeSpan
+            + MessageCount : int
+            + Reason : string
+        }
+    }
+    
+    package "SessionLayer.Helpers" {
+        class SessionManager {
+            - _stateMachine : SessionStateMachine
+            - _config : SessionLayerConfiguration
+            - _activityLock : Lock
+            - _sessionStartTime : DateTime
+            - _lastActivityTime : DateTime
+            - _localDeviceId : uint
+            - _remoteDeviceId : uint
+            - _messageCount : int
+            --
+            + State : SessionState <<readonly>>
+            + LocalDeviceId : uint <<readonly>>
+            + RemoteDeviceId : uint <<readonly>>
+            + IsActive : bool <<readonly>>
+            + SessionDuration : TimeSpan <<readonly>>
+            + IdleTime : TimeSpan <<readonly>>
+            + MessageCount : int <<readonly>>
+            + StateMachine : SessionStateMachine <<readonly>>
+            --
+            + <<event>> SessionEstablished : EventHandler<SessionEstablishedEventArgs>
+            + <<event>> SessionTerminated : EventHandler<SessionTerminatedEventArgs>
+            + <<event>> SessionExpired : EventHandler
+            --
+            + SessionManager(config: SessionLayerConfiguration)
+            + Initialize() : bool
+            + OpenSession(remoteDeviceId: uint) : bool
+            + CloseSession() : void
+            + RecordActivity() : void
+            + UpdateRemoteDevice(remoteDeviceId: uint) : void
+            + CheckTimeout() : bool
+            + {static} CreateMessageMetadata(cryptType: CryptType, senderId: uint) : MessageMetadata
+        }
+        
+        class SessionStateMachine {
+            - _currentState : SessionState
+            - _lock : Lock
+            --
+            + CurrentState : SessionState <<readonly>>
+            + IsConnected : bool <<readonly>>
+            --
+            + <<event>> StateChanged : EventHandler<StateChangedEventArgs>
+            --
+            + TryTransition(newState: SessionState) : bool
+            + CanTransitionTo(newState: SessionState) : bool
+            + Reset() : void
+            + GetReachableStates() : SessionState[]
+        }
+        
+        class DeviceIdCalculator <<static>> {
+            + {static} CalculateId(network: byte, machine: byte, boardType: ushort, boardNumber: byte) : uint
+            + {static} DecomposeId(srid: uint) : (byte network, byte machine, ushort boardType, byte boardNumber)
+        }
+    }
+    
+    SessionLayer *-- SessionManager
+    SessionManager *-- SessionStateMachine
+    SessionManager ..> DeviceIdCalculator : uses
+}
+
+' ================================================================================
+' PRESENTATION LAYER (Layer 6)
+' ================================================================================
+package "Layers.PresentationLayer" #FFF8E1 {
+    
+    class PresentationLayer implements IProtocolLayer, IDisposable {
+        - _cryptoProvider : CryptoProvider
+        - _config : PresentationLayerConfiguration
+        - _disposed : bool
+        --
+        + LayerName : string = "Presentation"
+        + LayerLevel : int = 6
+        + IsInitialized : bool
+        + UpperLayer : IProtocolLayer?
+        + LowerLayer : IProtocolLayer?
+        --
+        + PresentationLayer()
+        + InitializeAsync(config?: LayerConfiguration) : Task<bool>
+        + Shutdown() : void
+        + ProcessUpstreamAsync(data: byte[], context: LayerContext) : Task<LayerResult>
+        + ProcessDownstreamAsync(data: byte[], context: LayerContext) : Task<LayerResult>
+        + SetKey(cryptType: CryptType, key: byte[]) : void
+        + Dispose() : void
+    }
+    
+    package "PresentationLayer.Models" {
+        class PresentationLayerConfiguration extends LayerConfiguration {
+            + DefaultCryptType : CryptType
+            + AesKey : byte[]?
+        }
+        
+        class PresentationLayerConstants <<static>> {
+            + {static} AES_BLOCK_SIZE : int = 16
+            + {static} AES_KEY_SIZE : int = 16
+            + {static} DEFAULT_AES_KEY : byte[]
+        }
+    }
+    
+    package "PresentationLayer.Helpers" {
+        class CryptoProvider implements IDisposable {
+            - _keys : Dictionary<CryptType, byte[]>
+            - _keyLock : ReaderWriterLockSlim
+            - _disposed : bool
+            --
+            + Encrypt(data: byte[], cryptType: CryptType) : byte[]
+            + Decrypt(data: byte[], cryptType: CryptType, originalLength?: int) : byte[]
+            + SetKey(cryptType: CryptType, key: byte[]) : void
+            + HasKey(cryptType: CryptType) : bool
+            + Dispose() : void
+        }
+        
+        class DataEncryptor implements IDisposable {
+            - _aesEncryptor : AesEncryptor
+            - _disposed : bool
+            --
+            + DataEncryptor(key: byte[])
+            + Encrypt(data: byte[]) : byte[]
+            + Decrypt(data: byte[], originalLength?: int) : byte[]
+            + Dispose() : void
+        }
+        
+        class AesEncryptor implements IDisposable {
+            - _aes : Aes
+            - _encryptor : ICryptoTransform
+            - _decryptor : ICryptoTransform
+            - _disposed : bool
+            --
+            + AesEncryptor(key: byte[])
+            + EncryptBlock(block: byte[]) : byte[]
+            + DecryptBlock(block: byte[]) : byte[]
+            + Dispose() : void
+        }
+        
+        class PaddingHelper <<static>> {
+            + {static} AddPadding(data: byte[], blockSize: int) : byte[]
+            + {static} RemovePadding(paddedData: byte[]) : byte[]
+        }
+    }
+    
+    PresentationLayer *-- CryptoProvider
+    CryptoProvider ..> DataEncryptor : creates
+    DataEncryptor *-- AesEncryptor
+    DataEncryptor ..> PaddingHelper : uses
+}
+
+' ================================================================================
+' APPLICATION LAYER (Layer 7)
+' ================================================================================
+package "Layers.ApplicationLayer" #E0F2F1 {
+    
+    class ApplicationLayer implements IProtocolLayer {
+        - _localDeviceId : uint
+        - _syncLock : Lock
+        - _handlerRegistry : CommandHandlerRegistry?
+        --
+        + LayerName : string = "Application"
+        + LayerLevel : int = 7
+        + IsInitialized : bool
+        + UpperLayer : IProtocolLayer? = null
+        + LowerLayer : IProtocolLayer?
+        --
+        + <<event>> MessageReceived : EventHandler<MessageReceivedEventArgs>
+        + <<event>> AckReceived : EventHandler<AckReceivedEventArgs>
+        --
+        + ApplicationLayer()
+        + ApplicationLayer(handlerRegistry: CommandHandlerRegistry)
+        + InitializeAsync(config?: LayerConfiguration) : Task<bool>
+        + Shutdown() : void
+        + ProcessUpstreamAsync(data: byte[], context: LayerContext) : Task<LayerResult>
+        + ProcessDownstreamAsync(data: byte[], context: LayerContext) : Task<LayerResult>
+        + AttachUpperLayer(upperLayer?: IProtocolLayer) : void
+        + AttachLowerLayer(lowerLayer?: IProtocolLayer) : void
+    }
+    
+    package "ApplicationLayer.Interfaces" {
+        interface ICommandHandler {
+            + CommandId : CommandId <<readonly>>
+            --
+            + HandleAsync(message: ApplicationMessage, context: LayerContext) : Task<ApplicationMessage?>
+        }
+        
+        interface IAckHandler {
+            + CommandId : CommandId <<readonly>>
+            --
+            + HandleAsync(message: ApplicationMessage, context: LayerContext) : Task
+        }
+        
+        interface IVariableMap {
+            + RegisterVariable(definition: VariableDefinition) : void
+            + ReadAsync(address: ushort) : Task<byte[]>
+            + WriteAsync(address: ushort, value: byte[]) : Task
+            + HasVariable(address: ushort) : bool
+            + GetDefinition(address: ushort) : VariableDefinition
+        }
+    }
+    
+    package "ApplicationLayer.Enums" {
+        enum CommandId {
+            PROTOCOL_VERSION = 0
+            READ_LOGICAL_VARIABLE = 1
+            WRITE_LOGICAL_VARIABLE = 2
+            READ_MEMORY_AREA = 3
+            WRITE_MEMORY_AREA = 4
+            START_BOOTLOADER = 5
+            STOP_BOOTLOADER = 6
+            UPDATE_BOOTLOADER_PAGE = 7
+            START_DEVICE = 8
+            STOP_DEVICE = 9
+            RESTART_DEVICE = 10
+            ... (43 total commands)
+        }
+        
+        enum VariableDataType {
+            UInt8 = 0
+            Int8 = 1
+            UInt16 = 2
+            Int16 = 3
+            UInt32 = 4
+            Int32 = 5
+            Float = 6
+            ByteArray = 7
+        }
+    }
+    
+    package "ApplicationLayer.Models" {
+        class ApplicationLayerConfiguration extends LayerConfiguration {
+            + LocalDeviceId : uint
+        }
+        
+        class ApplicationLayerConstants <<static>> {
+            + {static} COMMAND_ACK_FLAG : int = 0x8000
+            + {static} USER_ADDRESS_OFFSET : int = 0x8000
+            + {static} MAX_COMMAND_ID : int = 43
+            + {static} MAX_APPLICATION_PAYLOAD_SIZE : int = 1024
+        }
+        
+        class ApplicationMessage {
+            - _data : byte[]
+            --
+            + Command : CommandId
+            + Data : byte[]
+            + IsAcknowledgment : bool
+            + MessageMetadata : MessageMetadata
+            + TotalLength : int <<readonly>>
+        }
+        
+        class VariableDefinition {
+            + Address : ushort
+            + DataType : VariableDataType
+            + ReadHandler : Func<Task<byte[]>>?
+            + WriteHandler : Func<byte[], Task>?
+            + ValidateHandler : Func<byte[], bool>?
+            + MinValue : object?
+            + MaxValue : object?
+            + IsReadOnly : bool
+            + IsUserVariable : bool <<readonly>>
+        }
+        
+        class MessageReceivedEventArgs extends EventArgs {
+            + Message : ApplicationMessage
+            + Context : LayerContext
+        }
+        
+        class AckReceivedEventArgs extends EventArgs {
+            + Message : ApplicationMessage
+            + Context : LayerContext
+        }
+    }
+    
+    package "ApplicationLayer.Helpers" {
+        class ApplicationMessageSerializer <<static>> {
+            + {static} Serialize(message: ApplicationMessage) : byte[]
+            + {static} Deserialize(buffer: byte[]) : ApplicationMessage
+        }
+        
+        class CommandHandlerRegistry {
+            - _commandHandlers : ConcurrentDictionary<CommandId, ICommandHandler>
+            - _ackHandlers : ConcurrentDictionary<CommandId, IAckHandler>
+            - _defaultHandler : Func<ApplicationMessage, LayerContext, Task<ApplicationMessage?>>?
+            --
+            + CommandHandlerRegistry()
+            + CommandHandlerRegistry(commandHandlers: IEnumerable<ICommandHandler>)
+            + RegisterHandler(handler: ICommandHandler) : void
+            + RegisterAckHandler(handler: IAckHandler) : void
+            + SetDefaultHandler(handler: Func<...>) : void
+            + UnregisterHandler(commandId: CommandId) : bool
+            + UnregisterAckHandler(commandId: CommandId) : bool
+            + HasHandler(commandId: CommandId) : bool
+            + HasAckHandler(commandId: CommandId) : bool
+            + DispatchAsync(message: ApplicationMessage, context: LayerContext) : Task<ApplicationMessage?>
+            + DispatchAckAsync(message: ApplicationMessage, context: LayerContext) : Task
+        }
+        
+        class VariableMap implements IVariableMap {
+            - _variables : ConcurrentDictionary<ushort, VariableDefinition>
+            --
+            + RegisterVariable(definition: VariableDefinition) : void
+            + ReadAsync(address: ushort) : Task<byte[]>
+            + WriteAsync(address: ushort, value: byte[]) : Task
+            + HasVariable(address: ushort) : bool
+            + GetDefinition(address: ushort) : VariableDefinition
+        }
+    }
+    
+    package "ApplicationLayer.Helpers.CommandHandlers" {
+        class ProtocolVersionHandler implements ICommandHandler {
+            + CommandId : CommandId = PROTOCOL_VERSION
+            + HandleAsync(message: ApplicationMessage, context: LayerContext) : Task<ApplicationMessage?>
+        }
+        
+        class ReadLogicalVariableHandler implements ICommandHandler {
+            - _variableMap : IVariableMap
+            --
+            + CommandId : CommandId = READ_LOGICAL_VARIABLE
+            + ReadLogicalVariableHandler(variableMap: IVariableMap)
+            + HandleAsync(message: ApplicationMessage, context: LayerContext) : Task<ApplicationMessage?>
+        }
+        
+        class WriteLogicalVariableHandler implements ICommandHandler {
+            - _variableMap : IVariableMap
+            --
+            + CommandId : CommandId = WRITE_LOGICAL_VARIABLE
+            + WriteLogicalVariableHandler(variableMap: IVariableMap)
+            + HandleAsync(message: ApplicationMessage, context: LayerContext) : Task<ApplicationMessage?>
+        }
+        
+        class ReadMemoryAreaHandler implements ICommandHandler {
+            - _variableMap : IVariableMap
+            --
+            + CommandId : CommandId = READ_MEMORY_AREA
+            + ReadMemoryAreaHandler(variableMap: IVariableMap)
+            + HandleAsync(message: ApplicationMessage, context: LayerContext) : Task<ApplicationMessage?>
+        }
+        
+        class WriteMemoryAreaHandler implements ICommandHandler {
+            - _variableMap : IVariableMap
+            --
+            + CommandId : CommandId = WRITE_MEMORY_AREA
+            + WriteMemoryAreaHandler(variableMap: IVariableMap)
+            + HandleAsync(message: ApplicationMessage, context: LayerContext) : Task<ApplicationMessage?>
+        }
+    }
+    
+    ApplicationLayer o-- CommandHandlerRegistry
+    ApplicationLayer ..> ApplicationMessageSerializer : uses
+    CommandHandlerRegistry --> ICommandHandler : dispatches to
+    CommandHandlerRegistry --> IAckHandler : dispatches to
+    ReadLogicalVariableHandler --> IVariableMap : uses
+    WriteLogicalVariableHandler --> IVariableMap : uses
+    ReadMemoryAreaHandler --> IVariableMap : uses
+    WriteMemoryAreaHandler --> IVariableMap : uses
+    VariableMap ..|> IVariableMap
+}
+
+' ================================================================================
+' LAYER RELATIONSHIPS (OSI Stack)
+' ================================================================================
+
+' Layer chain (vertical stack)
+ApplicationLayer "1" -[hidden]down- "1" PresentationLayer
+PresentationLayer "1" -[hidden]down- "1" SessionLayer
+SessionLayer "1" -[hidden]down- "1" TransportLayer
+TransportLayer "1" -[hidden]down- "1" NetworkLayer
+NetworkLayer "1" -[hidden]down- "1" DataLinkLayer
+DataLinkLayer "1" -[hidden]down- "1" PhysicalLayer
+
+' IProtocolLayer relationships
+note right of IProtocolLayer
+  **OSI 7-Layer Model**
+  Layer 7: Application
+  Layer 6: Presentation
+  Layer 5: Session
+  Layer 4: Transport
+  Layer 3: Network
+  Layer 2: Data Link
+  Layer 1: Physical
+  
+  Data flows:
+  - Upstream: Physical ? Application (receive)
+  - Downstream: Application ? Physical (send)
+end note
+
+' Dependencies between packages
+LayerContext ..> CryptType : uses
+LayerContext ..> ChannelType : uses
+LayerContext ..> PacketPriority : uses
+LayerContext ..> FlowDirection : uses
+
+LayerResult ..> LayerStatus : uses
+
+MessageMetadata ..> CryptType : uses
+
+DataLinkFrame ..> CryptType : uses
+
+@enduml

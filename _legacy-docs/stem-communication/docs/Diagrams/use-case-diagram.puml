@@ -1,0 +1,376 @@
+@startuml STEM Communication Protocol - Use Case Diagram
+!theme plain
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+skinparam usecase {
+    BackgroundColor<<critical>> #FFCDD2
+    BackgroundColor<<optional>> #E1F5FE
+    BackgroundColor<<core>> #C8E6C9
+}
+
+title STEM Communication Protocol - Use Case Diagram
+caption Protocol v2.0 - System Interactions and Actor Relationships
+
+' ================================================================================
+' ACTORS
+' ================================================================================
+
+' Primary Actors (left side)
+actor "Local Application" as LocalApp #LightBlue
+actor "Remote Device" as RemoteDevice #LightGreen
+actor "System Administrator" as Admin #LightYellow
+
+' Secondary Actors (right side)
+actor "Channel Driver\n(UART/CAN/Cloud)" as ChannelDriver #LightGray
+actor "Crypto Provider" as CryptoActor #Pink
+actor "Timer Service" as TimerService #LightCoral
+
+' ================================================================================
+' SYSTEM BOUNDARY
+' ================================================================================
+
+rectangle "STEM Communication Protocol Stack" as ProtocolStack {
+    
+    ' ------------------------------------------------------------------------
+    ' MESSAGE TRANSMISSION USE CASES
+    ' ------------------------------------------------------------------------
+    package "Message Transmission" {
+        usecase "Send Message" as UC_SendMessage <<core>>
+        usecase "Receive Message" as UC_ReceiveMessage <<core>>
+        usecase "Send Broadcast" as UC_SendBroadcast
+        usecase "Receive Broadcast" as UC_ReceiveBroadcast
+        usecase "Send ACK Response" as UC_SendAck
+        usecase "Receive ACK Response" as UC_ReceiveAck
+    }
+    
+    ' ------------------------------------------------------------------------
+    ' SESSION MANAGEMENT USE CASES
+    ' ------------------------------------------------------------------------
+    package "Session Management" {
+        usecase "Initialize Protocol Stack" as UC_InitStack <<critical>>
+        usecase "Shutdown Protocol Stack" as UC_ShutdownStack <<critical>>
+        usecase "Open Session" as UC_OpenSession <<core>>
+        usecase "Close Session" as UC_CloseSession <<core>>
+        usecase "Send Heartbeat" as UC_Heartbeat
+        usecase "Check Session Timeout" as UC_CheckTimeout
+        usecase "Handle Session Expiry" as UC_SessionExpiry
+    }
+    
+    ' ------------------------------------------------------------------------
+    ' DEVICE MANAGEMENT USE CASES
+    ' ------------------------------------------------------------------------
+    package "Device Management" {
+        usecase "Calculate Device ID (SRID)" as UC_CalcDeviceId
+        usecase "Discover Devices" as UC_DiscoverDevices <<optional>>
+        usecase "Register Device" as UC_RegisterDevice
+        usecase "Unregister Device" as UC_UnregisterDevice
+        usecase "Get Device Status" as UC_GetDeviceStatus
+        usecase "Update Device Heartbeat" as UC_UpdateHeartbeat
+    }
+    
+    ' ------------------------------------------------------------------------
+    ' ROUTING USE CASES
+    ' ------------------------------------------------------------------------
+    package "Routing & Forwarding" {
+        usecase "Add Route" as UC_AddRoute
+        usecase "Remove Route" as UC_RemoveRoute
+        usecase "Calculate Best Path" as UC_CalcBestPath
+        usecase "Forward Packet" as UC_ForwardPacket <<optional>>
+        usecase "Handle Multi-Hop Routing" as UC_MultiHop <<optional>>
+        usecase "Collect Network Metrics" as UC_CollectMetrics
+    }
+    
+    ' ------------------------------------------------------------------------
+    ' DATA TRANSFORMATION USE CASES
+    ' ------------------------------------------------------------------------
+    package "Data Transformation" {
+        usecase "Chunk Payload" as UC_ChunkPayload
+        usecase "Reassemble Chunks" as UC_ReassembleChunks
+        usecase "Build Data Link Frame" as UC_BuildFrame
+        usecase "Parse Data Link Frame" as UC_ParseFrame
+        usecase "Validate CRC" as UC_ValidateCRC
+        usecase "Calculate CRC" as UC_CalcCRC
+    }
+    
+    ' ------------------------------------------------------------------------
+    ' SECURITY USE CASES
+    ' ------------------------------------------------------------------------
+    package "Security & Encryption" {
+        usecase "Encrypt Payload" as UC_Encrypt
+        usecase "Decrypt Payload" as UC_Decrypt
+        usecase "Set Encryption Key" as UC_SetKey <<critical>>
+        usecase "Apply PKCS7 Padding" as UC_Padding
+        usecase "Remove PKCS7 Padding" as UC_RemovePadding
+    }
+    
+    ' ------------------------------------------------------------------------
+    ' APPLICATION COMMAND USE CASES
+    ' ------------------------------------------------------------------------
+    package "Application Commands" {
+        usecase "Execute Command" as UC_ExecCommand <<core>>
+        usecase "Register Command Handler" as UC_RegisterHandler
+        usecase "Dispatch to Handler" as UC_DispatchHandler
+        
+        usecase "Read Protocol Version" as UC_ReadVersion
+        usecase "Read Logical Variable" as UC_ReadVar
+        usecase "Write Logical Variable" as UC_WriteVar
+        usecase "Read Memory Area" as UC_ReadMemory
+        usecase "Write Memory Area" as UC_WriteMemory
+        
+        usecase "Start/Stop Device" as UC_DeviceControl
+        usecase "Bootloader Operations" as UC_Bootloader <<critical>>
+        usecase "BLE Operations" as UC_BLE <<optional>>
+        usecase "Telemetry Operations" as UC_Telemetry <<optional>>
+    }
+    
+    ' ------------------------------------------------------------------------
+    ' VARIABLE MANAGEMENT USE CASES
+    ' ------------------------------------------------------------------------
+    package "Variable Management" {
+        usecase "Register Variable" as UC_RegisterVar
+        usecase "Read Variable Value" as UC_ReadVarValue
+        usecase "Write Variable Value" as UC_WriteVarValue
+        usecase "Validate Variable Value" as UC_ValidateVar
+        usecase "Get Variable Definition" as UC_GetVarDef
+    }
+    
+    ' ------------------------------------------------------------------------
+    ' PHYSICAL COMMUNICATION USE CASES
+    ' ------------------------------------------------------------------------
+    package "Physical Communication" {
+        usecase "Connect to Channel" as UC_ConnectChannel <<critical>>
+        usecase "Disconnect from Channel" as UC_DisconnectChannel
+        usecase "Read from Channel" as UC_ReadChannel
+        usecase "Write to Channel" as UC_WriteChannel
+        usecase "Manage TX Buffer" as UC_TxBuffer
+        usecase "Manage RX Buffer" as UC_RxBuffer
+    }
+    
+    ' ------------------------------------------------------------------------
+    ' DIAGNOSTICS & MONITORING USE CASES
+    ' ------------------------------------------------------------------------
+    package "Diagnostics & Monitoring" {
+        usecase "Get Buffer Statistics" as UC_BufferStats
+        usecase "Get Broadcast Statistics" as UC_BroadcastStats
+        usecase "Get Forwarding Statistics" as UC_ForwardStats
+        usecase "Monitor Link Quality" as UC_LinkQuality
+        usecase "Track Packet Loss" as UC_PacketLoss
+        usecase "Measure Latency" as UC_Latency
+    }
+}
+
+' ================================================================================
+' ACTOR ASSOCIATIONS
+' ================================================================================
+
+' Local Application associations
+LocalApp --> UC_SendMessage
+LocalApp --> UC_ReceiveMessage
+LocalApp --> UC_SendBroadcast
+LocalApp --> UC_OpenSession
+LocalApp --> UC_CloseSession
+LocalApp --> UC_InitStack
+LocalApp --> UC_ShutdownStack
+LocalApp --> UC_ExecCommand
+LocalApp --> UC_RegisterHandler
+LocalApp --> UC_RegisterVar
+LocalApp --> UC_ReadVar
+LocalApp --> UC_WriteVar
+LocalApp --> UC_SetKey
+LocalApp --> UC_AddRoute
+LocalApp --> UC_RemoveRoute
+LocalApp --> UC_CalcDeviceId
+LocalApp --> UC_GetDeviceStatus
+LocalApp --> UC_BufferStats
+
+' Remote Device associations
+RemoteDevice --> UC_ReceiveMessage
+RemoteDevice --> UC_SendMessage
+RemoteDevice --> UC_ReceiveBroadcast
+RemoteDevice --> UC_SendAck
+RemoteDevice --> UC_ReceiveAck
+RemoteDevice --> UC_DiscoverDevices
+
+' System Administrator associations
+Admin --> UC_InitStack
+Admin --> UC_ShutdownStack
+Admin --> UC_SetKey
+Admin --> UC_Bootloader
+Admin --> UC_DeviceControl
+Admin --> UC_LinkQuality
+Admin --> UC_BroadcastStats
+Admin --> UC_ForwardStats
+
+' Channel Driver associations
+ChannelDriver --> UC_ReadChannel
+ChannelDriver --> UC_WriteChannel
+ChannelDriver --> UC_ConnectChannel
+ChannelDriver --> UC_DisconnectChannel
+
+' Crypto Provider associations
+CryptoActor --> UC_Encrypt
+CryptoActor --> UC_Decrypt
+
+' Timer Service associations
+TimerService --> UC_Heartbeat
+TimerService --> UC_CheckTimeout
+TimerService --> UC_SessionExpiry
+
+' ================================================================================
+' USE CASE RELATIONSHIPS
+' ================================================================================
+
+' --- Message Transmission includes/extends ---
+UC_SendMessage ..> UC_BuildFrame : <<include>>
+UC_SendMessage ..> UC_ChunkPayload : <<include>>
+UC_SendMessage ..> UC_CalcCRC : <<include>>
+UC_SendMessage ..> UC_WriteChannel : <<include>>
+
+UC_ReceiveMessage ..> UC_ParseFrame : <<include>>
+UC_ReceiveMessage ..> UC_ReassembleChunks : <<include>>
+UC_ReceiveMessage ..> UC_ValidateCRC : <<include>>
+UC_ReceiveMessage ..> UC_ReadChannel : <<include>>
+
+UC_SendMessage ..> UC_Encrypt : <<extend>>
+UC_ReceiveMessage ..> UC_Decrypt : <<extend>>
+
+UC_SendBroadcast --|> UC_SendMessage : <<generalization>>
+UC_ReceiveBroadcast --|> UC_ReceiveMessage : <<generalization>>
+
+UC_SendAck --|> UC_SendMessage : <<generalization>>
+UC_ReceiveAck --|> UC_ReceiveMessage : <<generalization>>
+
+' --- Session Management includes/extends ---
+UC_InitStack ..> UC_ConnectChannel : <<include>>
+UC_ShutdownStack ..> UC_DisconnectChannel : <<include>>
+UC_ShutdownStack ..> UC_CloseSession : <<include>>
+
+UC_OpenSession ..> UC_RegisterDevice : <<include>>
+UC_CloseSession ..> UC_UnregisterDevice : <<extend>>
+
+UC_CheckTimeout ..> UC_SessionExpiry : <<extend>>
+UC_SessionExpiry ..> UC_CloseSession : <<include>>
+
+' --- Routing includes/extends ---
+UC_SendMessage ..> UC_CalcBestPath : <<extend>>
+UC_ForwardPacket ..> UC_CalcBestPath : <<include>>
+UC_MultiHop ..> UC_ForwardPacket : <<include>>
+UC_MultiHop ..> UC_CollectMetrics : <<include>>
+
+' --- Command Execution includes ---
+UC_ExecCommand ..> UC_DispatchHandler : <<include>>
+
+UC_ReadVar ..> UC_ReadVarValue : <<include>>
+UC_WriteVar ..> UC_WriteVarValue : <<include>>
+UC_WriteVar ..> UC_ValidateVar : <<include>>
+
+UC_ReadMemory ..> UC_ReadVarValue : <<include>>
+UC_WriteMemory ..> UC_WriteVarValue : <<include>>
+
+UC_ReadVersion --|> UC_ExecCommand : <<generalization>>
+UC_ReadVar --|> UC_ExecCommand : <<generalization>>
+UC_WriteVar --|> UC_ExecCommand : <<generalization>>
+UC_ReadMemory --|> UC_ExecCommand : <<generalization>>
+UC_WriteMemory --|> UC_ExecCommand : <<generalization>>
+UC_DeviceControl --|> UC_ExecCommand : <<generalization>>
+UC_Bootloader --|> UC_ExecCommand : <<generalization>>
+UC_BLE --|> UC_ExecCommand : <<generalization>>
+UC_Telemetry --|> UC_ExecCommand : <<generalization>>
+
+' --- Security includes ---
+UC_Encrypt ..> UC_Padding : <<include>>
+UC_Decrypt ..> UC_RemovePadding : <<include>>
+
+' --- Physical Communication includes ---
+UC_ReadChannel ..> UC_RxBuffer : <<include>>
+UC_WriteChannel ..> UC_TxBuffer : <<include>>
+
+' --- Device Discovery includes ---
+UC_DiscoverDevices ..> UC_RegisterDevice : <<include>>
+UC_DiscoverDevices ..> UC_AddRoute : <<include>>
+UC_RegisterDevice ..> UC_UpdateHeartbeat : <<extend>>
+
+' --- Diagnostics includes ---
+UC_CollectMetrics ..> UC_LinkQuality : <<include>>
+UC_CollectMetrics ..> UC_PacketLoss : <<include>>
+UC_CollectMetrics ..> UC_Latency : <<include>>
+
+' ================================================================================
+' NOTES
+' ================================================================================
+
+note right of ProtocolStack
+    **Legend**
+    ----
+    <<core>> = Essential functionality
+    <<critical>> = Security/System critical
+    <<optional>> = Optional/Advanced features
+    
+    **Data Flow**
+    ----
+    Downstream (TX): Application ? Physical
+    Upstream (RX): Physical ? Application
+    
+    **Supported Channels**
+    ----
+    • UART (Serial)
+    • CAN Bus
+    • Cloud/Internet
+end note
+
+note bottom of UC_ExecCommand
+    **43 Command Types Supported**
+    Including:
+    • Protocol Version (0)
+    • Read/Write Variables (1-2)
+    • Read/Write Memory (3-4)
+    • Bootloader (5-7)
+    • Device Control (8-10)
+    • BLE Operations (11-12, 19-20)
+    • Button Panel (13-14)
+    • Auto-Learning (15-17)
+    • Telemetry (21-23)
+    • And more...
+end note
+
+note left of UC_Encrypt
+    **Encryption**
+    ----
+    • AES-128 ECB
+    • PKCS7 Padding
+    • Configurable keys
+    • Optional (NO_CRYPT mode)
+end note
+
+note right of UC_ChunkPayload
+    **Chunking**
+    ----
+    • Max 200 bytes per chunk
+    • Packet ID: 1-7 (rolling)
+    • Up to 1023 chunks
+    • Automatic reassembly
+end note
+
+note bottom of UC_MultiHop
+    **Multi-Hop Routing**
+    ----
+    • Max 5 hops default
+    • Route metrics tracking
+    • Load balancing option
+    • Shortest path algorithm
+end note
+
+note left of RemoteDevice
+    **Remote Devices**
+    ----
+    • SHERPA SLIM
+    • OPTIMUS
+    • EDEN
+    • SPYKE
+    • SPARK
+    • TOP-LIFT-A2
+    • BLE Module
+    • And more...
+end note
+
+@enduml

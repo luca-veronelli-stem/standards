@@ -1,0 +1,134 @@
+INDIRIZZI SCHEDE A CUI SI APPLICA QUESTO DIZIONARIO,,,,,,,,,,,,,,,,,,,,
+0x000200C1,,,,,,,,,,,,,,,,,,,,
+TOP -LIFT-M,INDIRIZZO H (hex),INDIRIZZO L (hex),TIPO,FORMATO,MINIMO,MASSIMO,UNITA' DI MISURA,R/W,Significato,,,,,,,,,,,
+DATI STANDARD,,,,,,,,,,,,,,,,,,,,
+Firmware macchina,0,0,uint16_t ,255.255,0,255.255,,R,,,,,,,,,,,,
+Firmware scheda,0,1,uint16_t ,255.255,0,255.255,,R,,,,,,,,,,,,
+Modello,0,2,String[20],,,,,R,,,,,,,,,,,,
+Matricola,0,3,uint32_t ,,0,4294967296,,R,,,,,,,,,,,,
+Tipo scheda,0,4,enum dipendente dalle macchine,,,,,N,,,,,,,,,,,,
+Stato,0,5,3*uint32_t,,,,,R,,,,,,,,,,,,
+Allarmi,0,6,due word uint16_t bitmapped ,,,,,R,,,,,,,,,,,,
+Comandi,0,7,uint16_t ,,,,,N,,,,,,,,,,,,
+Temperatura scheda,0,8,uint16_t ,,,,,R,,,,,,,,,,,,
+Secondi lavoro motore parziale,0,9,uint32_t ,,,,,RW,,,,,,,,,,,,
+Secondi lavoro motore totale,0,A,uint32_t ,,,,,RW,,,,,,,,,,,,
+Cicli complessivi parziale,0,B,uint32_t ,,,,,RW,,,,,,,,,,,,
+Cicli complessivi totale,0,C,uint32_t ,,,,,RW,,,,,,,,,,,,
+Cicli completi eseguiti parziale,0,D,uint32_t ,,,,,RW,,numero cicli di lavoro completi totale,,,,,,,,,,
+Cicli completi eseguiti totale,0,E,uint32_t ,,0,100,%,RW,,,,,,,,,,,,
+Livello batteria,0,F,uint16_t ,,,,,R,,,,,,,,,,,,
+Salute batteria,0,10,uint16_t ,,,,,R,,,,,,,,,,,,
+Cicli batteria,0,11,uint16_t ,,,,,R,,,,,,,,,,,,
+Temperatura batteria,0,12,int16_t,,,,,R,,,,,,,,,,,,
+BatteryFirmware,0,13,uint32_t,,,,,R,,,,,,,,,,,,
+BatterySerial,0,14,uint32_t ,,,,,R,,,,,,,,,,,,
+Stato ingressi fisici,0,15,uint32_t ,,,,,R,,,,,,,,,,,,
+Firmware Bootloader,0,17,uint16_t ,255.255,0,255.255,,R,,,,,,,,,,,,
+Stato keyboard,80,0,uint8_t,,,,,N,,,,,,,,,,,,
+Motor Running,80,1,bool,,0,1,,R,"0 = motore fermo, 1 = motore in movimento",,,,,,,,,,,
+Motor Type,80,2,enum,,0,4,,R,"
+0 =  Not initialized
+1 =  DC BRUSHLESS 
+2 =  DC
+3  =  AC INDUCTION
+4 = AC BRUSHLESS ",,Magari mettere tra i motor Type anche l'ON/OFF tipo relè come questo.,,,,,,,,,
+Motor Position Reference,80,3,int16_t ,,,,,R,,,,,,,,,,,,
+Motor Position,80,4,int16_t ,,,,,R,,,,,,,,,,,,
+Position PID enabled,80,5,bool,,,,,R,,,,,,,,,,,,
+Position PID KP,80,6,int16_t ,,,,,RW,,,,,,,,,,,,
+Position PID KI,80,7,int32_t ,,,,,RW,,,,,,,,,,,,
+Motor Speed Reference,80,8,int16_t ,,,,,R,,,,,,,,,,,,
+Motor Speed,80,9,int16_t ,,,,,R,,,,,,,,,,,,
+Speed PID enabled,80,A,bool,,,,,R,,,,,,,,,,,,
+Speed PID KP,80,B,int16_t ,,,,,RW,,,,,,,,,,,,
+Speed PID KI,80,C,int32_t ,,,,,RW,,,,,,,,,,,,
+I reference,80,D,int16_t ,,,,,R,,,,,,,,,,,,
+Motor I,80,E,int16_t ,,,,,R,,,,,,,,,,,,
+enabled I PID,80,F,bool,,,,,R,,,,,,,,,,,,
+Kp I PID,80,10,int16_t ,,,,,RW,,,,,,,,,,,,
+Ki I PID,80,11,int32_t,,,,,RW,,,,,,,,,,,,
+Voltage reference applied to the motor,80,12,int16_t ,,,,,R,,,,,,,,,,,,
+Vbus measured,80,13,uint16_t ,,,,,R,,,,,,,,,,,,
+Motor faults,80,14,uint32_t ,,,,,RW,,,,,,,,,,,,
+Motor warnings,80,15,uint32_t ,,,,,RW,,,,,,,,,,,,
+Number of pulses when breaking in position loop control,80,16,uint16_t ,,,,,RW,,,,,,,,,,,,
+Time for out of control thermal fault (in ms),80,17,int32_t,,,,,RW,,,Ci sta che il controllo termico valga anche per il relè anche se sarà molto improbabile.,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,
+Working mode,80,2E,uint32_t,,,,,RW,,,,,,,,,,,,
+Stato posizione/in mezzo,80,2F,uint8_t,,,,,R,,,,,,,,,,,,
+Stato movimento motore,80,30,uint8_t,,,,,R,,,,,,,,,,,,
+Posizione ,80,31,uint32_t ,,,,,R,"2 words:
+word 0: lettura potenziometro altezza in bits
+word 1: lettura potenziometro tilt in bits",,,,,,,,,,,
+Posizione punto 1,80,32,uint16_t ,,,,,R,Posizione altezza punto 1 in bits,,,,,,,,,,,
+Posizione punto 2,80,33,uint16_t ,,,,,R,Posizione altezza punto 2 in bits,,,,,,,,,,,
+Posizione punto 3,80,34,uint16_t ,,,,,R,Posizione altezza punto 3 in bits,,,,,,,,,,,
+Stato automa,80,35,uint8_t,,,,,R,"Stato corrente della macchina a stati:
+0 = DETECT_M1
+1 = PRE_INIT
+2 = INIT
+3 = RESET_ALTEZZA
+6 = SALITA
+7 = DISCESA
+8 = INIT_ESTRAZIONE
+9 = WAIT_ALT_INIT_ESTRAZIONE
+10 = WAIT_INIT_ESTRAZIONE
+11 = ESTRAZIONE
+12 = TESTA_SU
+13 = PIEDI_SU
+14 = RESET_TILT
+15 = WAIT_TILT_RESET
+16 = PROGRAM
+17 = STOP
+18 = ERROR
+19 = WARMUP
+20 = STOP_MACCHINA_IN
+21 = STOP_MACCHINA_EXTR
+22 = WAIT_FC_INIT
+23 = WAIT_FC_ESTRAZIONE
+24 = REFRESH_HEIGHT",,,,,,,,,,,
+Stato IO,80,36,uint32_t ,,,,,R,"Bitmapped su 2 word:
+Word 0 (IN):
+Bit 0: stato fine corsa piano chiuso
+Bit 1: stato fine corsa piano aperto
+Bit 2: stato comando Up
+Bit 3: stato comando Down
+Bit 4: stato comando Mem
+Bit 5: stato comando Stop
+Bit 6: stato comando P1
+Bit 7: stato comando P2
+Bit 8: stato comando P3
+Bit 9: stato selettore inclina
+Bit 10: stato selettore va orizzontale
+
+Word 1 (OUT):
+Bit 0: stato elettrovalvola 1
+Bit 1: stato elettrovalvola 2
+Bit 2: stato elettrovalvola 3 (non presente in top lift)
+Bit 3: stato elettrovalvola 7
+Bit 4: stato elettrovalvola 8
+Bit 5: stato relè motore",,,,,,,,,,,
+Gestione fine corsa,80,37,bool,,,,,RW,"0 = solo PC, 1 = PC e PA",,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,LL-309VPGM2E-A-3C-G52B,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,

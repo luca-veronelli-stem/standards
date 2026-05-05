@@ -1,0 +1,76 @@
+INDIRIZZI SCHEDE A CUI SI APPLICA QUESTO DIZIONARIO,,,,,,,,,,,,,,
+0x000B0481,,,,,,,,,,,,,,
+R3-L XP,INDIRIZZO H+L (hex),,TIPO,FORMATO,MINIMO,MASSIMO,UNITA' DI MISURA,R/W,Uso,Significato,Ubicazione in App,Nome in App,Aspetto in App,Effetti in App
+DATI STANDARD,,,,,,,,,,,,,,
+Firmware macchina,0,0,uint16_t ,255.255,0,255.255,,R,,,,,,
+Firmware scheda,0,1,uint16_t ,255.255,0,255.255,,R,,,,,,
+Modello,0,2,String[20],,,,,R,,"Valore fisso:""R3-L XP""",,,,
+Matricola,0,3,uint32_t ,,0,4294967296,,RW,,,,,,
+Tipo scheda,0,4,enum dipendente dalle macchine,,,,,R,,Valore fisso: 5,,,,
+Stato,0,5,3*uint32_t,,,,,R,,,,,,
+Allarmi,0,6,due word uint16_t bitmapped ,,,,,R,Log GD,"WORD 1: allarmi:
+ bit 0: sovracorrente motore testa
+ bit 1: circuito aperto motore testa
+ bit 2: sovracorrente motore piedi
+ bit 3: circuito aperto motore piedi
+bit4: low battery
+bit5: costa sensibile
+bit6: Errore interno routine software
+bit7: errore hardware EEPROM esterna
+
+WORD 2: allarmi:
+
+WORD 3: allarmi:
+
+WORD 4: allarmi:
+
+WORD 5: warnings:
+
+WORD 6:
+
+WORD 7:
+
+WORD 8:",,,,
+Comandi,0,7,uint16_t ,,,,,N,,,,,,
+Temperatura scheda,0,8,uint16_t ,,,,,R,,,,,,
+Secondi lavoro motore parziale,0,9,uint32_t ,,,,,RW,,secondi di lavoro parziale della macchina,,,,
+Secondi lavoro motore totale,0,A,uint32_t ,,,,,RW,,secondi di lavoro totale della macchina,,,,
+Cicli complessivi parziale,0,B,uint32_t ,,,,,RW,,numero cicli di lavoro non completi parziale,,,,
+Cicli complessivi totale,0,C,uint32_t ,,,,,RW,,numero cicli di lavoro non completi totale,,,,
+Cicli completi eseguiti parziale,0,D,uint32_t ,,,,,RW,,numero cicli di lavoro completi parziale,,,,
+Cicli completi eseguiti totale,0,E,uint32_t ,,,,,RW,,numero cicli di lavoro completi totale,,,,
+Livello batteria,0,F,uint16_t ,,0,100,%,R,,"Derivato dalla tensione misurata, in percentaule",,,,
+Salute batteria,0,10,uint16_t ,,,,,R,,,,,,
+Cicli batteria,0,11,uint16_t ,,,,,R,,,,,,
+Temperatura batteria,0,12,int16_t,,,,,R,,,,,,
+BatteryFirmware,0,13,uint32_t,,,,,R,,,,,,
+BatterySerial,0,14,uint32_t ,,,,,R,,,,,,
+Stato ingressi fisici,0,15,uint32_t ,,,,,R,,,,,,
+Stato uscite fisiche,0,16,uint32_t ,,,,,R,,,,,,
+,,,,,,,,,,,,,,
+DATI LOGICI EDEN,,,,,,,,,,,,,,
+Stato keyboard1,80,0,uint8_t,,,,,N,,"Variabile logica gestita dalla tastiera esterna
+(non usare con l'app)",,,,
+SystemOn,80,1,bool,,0,1,,R,,"0 = piano spento, 1 = piano acceso (In scrittura è Stato keyboard2)",,,,
+Angolo inclinazione del piano,80,2,float,,,,gradi,R,,"Angolo di inclinazione del piano:
+11.0 è testa su massimo,
+  0.0 è orizzontale",,,,
+Position I Reference,80,3,int16_t,,-32767,32767,,R/W,,,,,,
+Non usato,80,4,,,,,,,,,,,,
+Status,80,5,uint8_t,,0,255,,R,,Stato macchina attuale,,,,
+Position I Measure,80,6,int16_t,,-32767,32767,,R,, (In scrittura è Stato keyboard3),,,,
+Position Slave I Measure,80,7,int16_t,,-32767,32767,,R,,,,,,
+FC Master,80,8,uint8_t,,0,255,,R,," bit 0: FC di corrente Low
+bit 1 = FC di corrente High
+bit 2 = FC di posizione Low
+bit 3 = FC di posizione High",,,,
+Non usato,80,9,,,,,,,,,,,,
+Vitual keyboard,80,A,uint8_t,,,,,R/W,,"Tastiera virtuale per replicare i tasti tramite app. E' mappata a bit:
+bit 0: TESTA GIU
+bit 1: TUTTO GIU
+bit 2: TUTTO SU
+bit 3: TESTA SU
+ bit 4: PIEDI SU
+bit 5: PIEDI GIU
+bit 6: STOP
+bit 7: LUCI",,,,

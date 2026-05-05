@@ -1,0 +1,159 @@
+@startuml ER_Schema
+
+' Diagramma Entity-Relationship del database
+' Stem.Production.Tracker
+
+skinparam linetype ortho
+skinparam roundcorner 5
+skinparam class {
+    BackgroundColor #FEFEFE
+    BorderColor #333333
+    ArrowColor #333333
+}
+
+' === LEGENDA ===
+legend right
+  |= Simbolo |= Significato |
+  | PK | Primary Key |
+  | FK | Foreign Key |
+  | * | Required |
+  | o | Optional |
+  | --- | Soft Delete fields |
+endlegend
+
+' === ENTITÀ ===
+
+entity "WorkOrders" as wo {
+    * **Id** : int <<PK>>
+    --
+    * Number : string
+    * ProductType : enum
+    * TotalDevices : int
+    --
+    * CreatedAt : datetime
+    * UpdatedAt : datetime
+    * IsDeleted : bool
+    o DeletedAt : datetime
+}
+
+entity "Phases" as ph {
+    * **Id** : int <<PK>>
+    --
+    * WorkOrderId : int <<FK>>
+    * PhaseNumber : int
+    * AssignedAssembler : string
+    --
+    * CreatedAt : datetime
+    * UpdatedAt : datetime
+    * IsDeleted : bool
+    o DeletedAt : datetime
+}
+
+entity "Devices" as dev {
+    * **Id** : int <<PK>>
+    --
+    * WorkOrderId : int <<FK>>
+    * PhaseId : int <<FK>>
+    * SerialSuffix : string
+    * Status : enum
+    o FinalSerial : string
+    --
+    * CreatedAt : datetime
+    * UpdatedAt : datetime
+    * IsDeleted : bool
+    o DeletedAt : datetime
+}
+
+entity "FunctionalGroups" as fg {
+    * **Id** : int <<PK>>
+    --
+    * DeviceId : int <<FK>>
+    * PartNumber : string
+    o Description : string
+    * SerialNumber : string
+    --
+    * CreatedAt : datetime
+    * UpdatedAt : datetime
+    * IsDeleted : bool
+    o DeletedAt : datetime
+}
+
+entity "AssemblySessions" as asess {
+    * **Id** : int <<PK>>
+    --
+    * DeviceId : int <<FK>>
+    * Assembler : string
+    * Date : datetime
+    --
+    * CreatedAt : datetime
+    * UpdatedAt : datetime
+    * IsDeleted : bool
+    o DeletedAt : datetime
+}
+
+entity "TestSessions" as tsess {
+    * **Id** : int <<PK>>
+    --
+    * DeviceId : int <<FK>>
+    * Tester : string
+    * Date : datetime
+    o FirmwareVersion : string
+    o SecondarySerial : string
+    o SecondaryFirmware : string
+    --
+    * CreatedAt : datetime
+    * UpdatedAt : datetime
+    * IsDeleted : bool
+    o DeletedAt : datetime
+}
+
+entity "CheckExecutions" as ce {
+    * **Id** : int <<PK>>
+    --
+    o AssemblySessionId : int <<FK>>
+    o TestSessionId : int <<FK>>
+    * CheckId : int
+    * Outcome : enum
+    o MeasuredValue : double
+    * Operator : string
+    * ExecutedAt : datetime
+    --
+    * CreatedAt : datetime
+    * UpdatedAt : datetime
+    * IsDeleted : bool
+    o DeletedAt : datetime
+}
+
+' === RELAZIONI ===
+
+wo ||--o{ ph : "has many"
+wo ||--o{ dev : "has many"
+ph ||--o{ dev : "assigned to"
+dev ||--o{ fg : "contains"
+dev ||--o{ asess : "has history"
+dev ||--o{ tsess : "has history"
+asess ||--o{ ce : "executions"
+tsess ||--o{ ce : "executions"
+
+' === NOTE ===
+
+note bottom of wo
+    ProductType: EdenBs8, OptimusXp, EdenXp, R3lXp
+end note
+
+note bottom of dev
+    Status: Ordered, InProduction, InTesting, Completed
+    FullId = "{WorkOrder.Number}-{SerialSuffix}"
+end note
+
+note bottom of ce
+    Outcome: Ok, No, Measured, Present, Absent
+    AssemblySessionId XOR TestSessionId (mutually exclusive)
+end note
+
+note bottom of ph
+    FullId = "{WorkOrder.Number}/{PhaseNumber}"
+    Es: "12345/10"
+end note
+
+@enduml

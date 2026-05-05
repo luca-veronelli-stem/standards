@@ -1,0 +1,816 @@
+@startuml STEM Communication Protocol - Sequence Diagram
+!theme plain
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam maxMessageSize 200
+skinparam sequenceArrowThickness 1.5
+
+title STEM Communication Protocol - Sequence Diagrams
+caption Protocol v2.0 - OSI 7-Layer Message Flow
+
+' ================================================================================
+' PARTICIPANTS
+' ================================================================================
+
+box "Application Domain" #E0F2F1
+    participant "Local\nApplication" as App
+    participant "ApplicationLayer\n(Layer 7)" as L7
+    participant "CommandHandler\nRegistry" as Registry
+end box
+
+box "Security Domain" #FFF8E1
+    participant "PresentationLayer\n(Layer 6)" as L6
+    participant "CryptoProvider" as Crypto
+end box
+
+box "Session Domain" #E8EAF6
+    participant "SessionLayer\n(Layer 5)" as L5
+    participant "SessionManager" as SessMgr
+end box
+
+box "Transport Domain" #FFEBEE
+    participant "TransportLayer\n(Layer 4)" as L4
+    participant "PacketChunker" as Chunker
+    participant "ChunkReassembler" as Reassembler
+end box
+
+box "Routing Domain" #F3E5F5
+    participant "NetworkLayer\n(Layer 3)" as L3
+    participant "RoutingTable\nManager" as RouteMgr
+    participant "BroadcastManager" as BroadcastMgr
+end box
+
+box "Framing Domain" #FFF3E0
+    participant "DataLinkLayer\n(Layer 2)" as L2
+    participant "FrameBuilder/\nParser" as FrameHelper
+    participant "CRC16Calculator" as CRC
+end box
+
+box "Physical Domain" #E3F2FD
+    participant "PhysicalLayer\n(Layer 1)" as L1
+    participant "ChannelDriver\n(UART/CAN/Cloud)" as Channel
+    participant "TX/RX Buffers" as Buffers
+end box
+
+box "External" #FAFAFA
+    participant "Remote\nDevice" as Remote
+end box
+
+' ================================================================================
+' SEQUENCE 1: PROTOCOL STACK INITIALIZATION
+' ================================================================================
+
+newpage Protocol Stack Initialization
+
+App -> L7 : InitializeAsync(config)
+activate L7
+
+L7 -> L7 : Validate LocalDeviceId ? 0
+
+L7 -> L6 : InitializeAsync(config)
+activate L6
+L6 -> Crypto : SetKey(AES128, key)
+Crypto --> L6 : Key stored
+L6 --> L7 : true
+deactivate L6
+
+L7 -> L5 : InitializeAsync(config)
+activate L5
+L5 -> SessMgr : new SessionManager(config)
+SessMgr -> SessMgr : Initialize StateMachine
+SessMgr --> L5 : Manager ready
+L5 --> L7 : true
+deactivate L5
+
+L7 -> L4 : InitializeAsync(config)
+activate L4
+L4 -> Chunker : new PacketChunker(chunkSize)
+L4 -> Reassembler : new ChunkReassembler()
+L4 --> L7 : true
+deactivate L4
+
+L7 -> L3 : InitializeAsync(config)
+activate L3
+L3 -> RouteMgr : new RoutingTableManager()
+L3 -> BroadcastMgr : new BroadcastManager()
+L3 --> L7 : true
+deactivate L3
+
+L7 -> L2 : InitializeAsync(config)
+activate L2
+L2 --> L7 : true
+deactivate L2
+
+L7 -> L1 : InitializeAsync(config)
+activate L1
+L1 -> Channel : ConnectAsync(config)
+activate Channel
+Channel --> L1 : Connected
+deactivate Channel
+L1 -> Buffers : Initialize TX/RX buffers
+Buffers --> L1 : Buffers ready
+L1 --> L7 : true
+deactivate L1
+
+L7 --> App : Stack Initialized
+deactivate L7
+
+note over App, Remote
+  **Initialization Complete**
+  All 7 layers initialized bottom-up
+  Channel connected, encryption keys set
+end note
+
+' ================================================================================
+' SEQUENCE 2: MESSAGE TRANSMISSION (DOWNSTREAM)
+' ================================================================================
+
+newpage Message Transmission (Downstream Flow)
+
+App -> L7 : ProcessDownstreamAsync(payload, context)
+activate L7
+note right of L7: context contains:\n- SenderId\n- DestinationId\n- CryptType
+
+L7 -> L7 : Create ApplicationMessage
+L7 -> L7 : Serialize(message)
+
+L7 -> L6 : ProcessDownstreamAsync(data, context)
+activate L6
+
+alt CryptType == AES128
+    L6 -> Crypto : Encrypt(data, AES128)
+    activate Crypto
+    Crypto -> Crypto : AddPadding(PKCS7)
+    Crypto -> Crypto : AES-128 ECB Encrypt
+    Crypto --> L6 : encryptedData
+    deactivate Crypto
+    L6 -> L6 : Store OriginalPayloadLength\nin context
+else CryptType == NO_CRYPT
+    L6 -> L6 : Skip encryption
+end
+
+L6 -> L5 : ProcessDownstreamAsync(data, context)
+activate L5
+
+L5 -> SessMgr : RecordActivity()
+L5 -> SessMgr : UpdateRemoteDevice(destinationId)
+
+alt State == Disconnected
+    L5 -> SessMgr : OpenSession(destinationId)
+    SessMgr -> SessMgr : Transition to Connected
+end
+
+L5 -> L4 : ProcessDownstreamAsync(data, context)
+activate L4
+
+L4 -> Chunker : CalculateChunkCount(dataLength)
+Chunker --> L4 : chunkCount
+
+alt chunkCount > 1
+    L4 -> Chunker : Split(payload, destId, packetId)
+    activate Chunker
+    loop for each chunk
+        Chunker -> Chunker : Create TransportChunk\nwith ChunkMetadata
+    end
+    Chunker --> L4 : List<TransportChunk>
+    deactivate Chunker
+    
+    loop for each chunk
+        L4 -> L4 : Serialize chunk
+        L4 -> L3 : ProcessDownstreamAsync(chunkData, context)
+    end
+else Single chunk
+    L4 -> L3 : ProcessDownstreamAsync(data, context)
+end
+
+activate L3
+
+alt IsBroadcast (destId == 0xFFFFFFFF)
+    L3 -> BroadcastMgr : MarkBroadcastProcessed(senderId, timestamp)
+    L3 -> L3 : Set NextHop = null (direct send)
+else Routed message
+    L3 -> RouteMgr : GetRoute(destinationId)
+    activate RouteMgr
+    RouteMgr --> L3 : RouteInfo or null
+    deactivate RouteMgr
+    
+    alt Route found
+        L3 -> L3 : context.NextHop = route.NextHop
+        L3 -> L3 : context.HopCount++
+    else No route
+        L3 -> L3 : Use direct routing
+    end
+end
+
+L3 -> L2 : ProcessDownstreamAsync(data, context)
+activate L2
+
+L2 -> FrameHelper : Build(cryptType, senderId, data)
+activate FrameHelper
+
+FrameHelper -> FrameHelper : Create DataLinkFrame
+FrameHelper -> CRC : Compute(header + data)
+activate CRC
+CRC -> CRC : Update with each byte
+CRC --> FrameHelper : CRC16 value
+deactivate CRC
+
+FrameHelper -> FrameHelper : Serialize frame
+FrameHelper --> L2 : frameBytes
+deactivate FrameHelper
+
+L2 -> L1 : ProcessDownstreamAsync(frameBytes, context)
+activate L1
+
+L1 -> Buffers : Write to TxBuffer
+activate Buffers
+Buffers --> L1 : bytes written
+deactivate Buffers
+
+L1 -> Channel : WriteAsync(data)
+activate Channel
+Channel -> Remote : <<transmit bytes>>
+Channel --> L1 : Write complete
+deactivate Channel
+
+L1 --> L2 : LayerResult.Success
+deactivate L1
+
+L2 --> L3 : LayerResult.Success
+deactivate L2
+
+L3 --> L4 : LayerResult.Success
+deactivate L3
+
+L4 --> L5 : LayerResult.Success
+deactivate L4
+
+L5 --> L6 : LayerResult.Success
+deactivate L5
+
+L6 --> L7 : LayerResult.Success
+deactivate L6
+
+L7 --> App : LayerResult.Success(data)
+deactivate L7
+
+note over App, Remote
+  **Transmission Complete**
+  Message encrypted, chunked, framed
+  and transmitted to remote device
+end note
+
+' ================================================================================
+' SEQUENCE 3: MESSAGE RECEPTION (UPSTREAM)
+' ================================================================================
+
+newpage Message Reception (Upstream Flow)
+
+Remote -> Channel : <<incoming bytes>>
+activate Channel
+
+Channel -> L1 : Data available
+activate L1
+
+L1 -> Channel : ReadAsync()
+Channel --> L1 : rawBytes
+deactivate Channel
+
+L1 -> Buffers : Write to RxBuffer
+Buffers --> L1 : bytes stored
+
+L1 -> L1 : ProcessUpstreamAsync(rawBytes, context)
+
+L1 -> L2 : ProcessUpstreamAsync(data, context)
+activate L2
+
+L2 -> FrameHelper : Parse(buffer)
+activate FrameHelper
+FrameHelper -> FrameHelper : Extract header fields
+FrameHelper -> FrameHelper : Extract payload
+FrameHelper --> L2 : ParseResult
+deactivate FrameHelper
+
+alt ParseResult.IsSuccess
+    L2 -> CRC : Compute(header + data)
+    activate CRC
+    CRC --> L2 : calculatedCRC
+    deactivate CRC
+    
+    L2 -> L2 : Compare with frame.CRC16
+    
+    alt CRC valid
+        L2 -> L2 : Extract SenderId from frame
+        L2 -> L2 : context.SenderId = frame.SenderId
+        L2 -> L2 : context.CryptType = frame.Crypt
+        
+        L2 -> L3 : ProcessUpstreamAsync(payload, context)
+    else CRC invalid
+        L2 --> L1 : LayerResult.Error("CRC mismatch")
+    end
+else Parse failed
+    L2 --> L1 : LayerResult.Error(parseError)
+end
+
+activate L3
+
+alt IsBroadcast
+    L3 -> BroadcastMgr : IsBroadcastProcessed(senderId, timestamp)
+    activate BroadcastMgr
+    BroadcastMgr --> L3 : isDuplicate
+    deactivate BroadcastMgr
+    
+    alt isDuplicate
+        L3 --> L2 : LayerResult.Skipped
+    else New broadcast
+        L3 -> BroadcastMgr : MarkBroadcastProcessed(senderId, timestamp)
+    end
+end
+
+L3 -> RouteMgr : AddRoute(senderId, senderId, 1)
+note right: Learn route from sender
+
+L3 -> L4 : ProcessUpstreamAsync(data, context)
+activate L4
+
+L4 -> L4 : Deserialize to TransportChunk
+L4 -> L4 : Extract ChunkMetadata
+
+L4 -> Reassembler : AddChunk(chunk)
+activate Reassembler
+
+alt IsFirstChunk
+    Reassembler -> Reassembler : Create new PacketBuffer
+    Reassembler -> Reassembler : Store chunk data
+else Continuation chunk
+    Reassembler -> Reassembler : Append to existing buffer
+end
+
+alt ChunksRemaining == 0
+    Reassembler -> Reassembler : Concatenate all chunks
+    Reassembler --> L4 : ReassemblyResult.Complete(data)
+else More chunks expected
+    Reassembler --> L4 : ReassemblyResult.Incomplete
+end
+deactivate Reassembler
+
+alt Reassembly complete
+    L4 -> L5 : ProcessUpstreamAsync(reassembledData, context)
+else Waiting for chunks
+    L4 --> L3 : LayerResult.Incomplete
+end
+
+activate L5
+
+L5 -> SessMgr : RecordActivity()
+L5 -> SessMgr : UpdateRemoteDevice(senderId)
+
+alt Session not active
+    L5 -> SessMgr : OpenSession(senderId)
+end
+
+L5 -> L6 : ProcessUpstreamAsync(data, context)
+activate L6
+
+alt context.CryptType == AES128
+    L6 -> Crypto : Decrypt(data, AES128, originalLength)
+    activate Crypto
+    Crypto -> Crypto : AES-128 ECB Decrypt
+    Crypto -> Crypto : RemovePadding(PKCS7)
+    Crypto --> L6 : decryptedData
+    deactivate Crypto
+else NO_CRYPT
+    L6 -> L6 : Skip decryption
+end
+
+L6 -> L7 : ProcessUpstreamAsync(data, context)
+activate L7
+
+L7 -> L7 : Deserialize to ApplicationMessage
+L7 -> L7 : Extract CommandId
+
+alt IsAcknowledgment (ACK flag set)
+    L7 -> Registry : DispatchAckAsync(message, context)
+    activate Registry
+    Registry -> Registry : Find IAckHandler
+    Registry -> Registry : handler.HandleAsync()
+    Registry --> L7 : handled
+    deactivate Registry
+    
+    L7 ->> App : <<AckReceived event>>
+else Command message
+    L7 -> Registry : DispatchAsync(message, context)
+    activate Registry
+    Registry -> Registry : Find ICommandHandler
+    
+    alt Handler found
+        Registry -> Registry : handler.HandleAsync()
+        Registry --> L7 : responseMessage or null
+    else No handler
+        Registry -> Registry : Use defaultHandler
+        Registry --> L7 : responseMessage or null
+    end
+    deactivate Registry
+    
+    L7 ->> App : <<MessageReceived event>>
+    
+    alt Response required
+        L7 -> L7 : ProcessDownstreamAsync(response)
+        note right: Send ACK or response
+    end
+end
+
+L7 --> L6 : LayerResult.Success(data)
+deactivate L7
+
+L6 --> L5 : LayerResult.Success
+deactivate L6
+
+L5 --> L4 : LayerResult.Success
+deactivate L5
+
+L4 --> L3 : LayerResult.Success
+deactivate L4
+
+L3 --> L2 : LayerResult.Success
+deactivate L3
+
+L2 --> L1 : LayerResult.Success
+deactivate L2
+
+L1 --> Channel : Processing complete
+deactivate L1
+
+note over App, Remote
+  **Reception Complete**
+  Message received, validated, decrypted,
+  reassembled and dispatched to handler
+end note
+
+' ================================================================================
+' SEQUENCE 4: SESSION LIFECYCLE
+' ================================================================================
+
+newpage Session Lifecycle Management
+
+== Session Opening ==
+
+App -> L5 : OpenSession(remoteDeviceId)
+activate L5
+
+L5 -> SessMgr : OpenSession(remoteDeviceId)
+activate SessMgr
+
+SessMgr -> SessMgr : _remoteDeviceId = remoteDeviceId
+SessMgr -> SessMgr : _sessionStartTime = DateTime.UtcNow
+
+SessMgr -> SessMgr : StateMachine.TryTransition(Connected)
+activate SessMgr
+SessMgr -> SessMgr : Validate transition from current state
+SessMgr ->> SessMgr : <<StateChanged event>>
+deactivate SessMgr
+
+SessMgr ->> App : <<SessionEstablished event>>
+
+SessMgr --> L5 : true
+deactivate SessMgr
+
+L5 --> App : Session opened
+deactivate L5
+
+== Heartbeat Processing ==
+
+loop Every HeartbeatInterval (default: 2 seconds)
+    L5 -> L5 : HeartbeatTimer fires
+    activate L5
+    
+    L5 -> SessMgr : CheckTimeout()
+    activate SessMgr
+    
+    SessMgr -> SessMgr : Calculate IdleTime
+    
+    alt IdleTime > SessionTimeout
+        SessMgr ->> SessMgr : <<SessionExpired event>>
+        SessMgr -> SessMgr : CloseSession()
+        SessMgr --> L5 : true (expired)
+    else Session active
+        SessMgr --> L5 : false (not expired)
+    end
+    deactivate SessMgr
+    
+    deactivate L5
+end
+
+== Session Closing ==
+
+App -> L5 : CloseSession()
+activate L5
+
+L5 -> SessMgr : CloseSession()
+activate SessMgr
+
+SessMgr -> SessMgr : Calculate session duration
+SessMgr -> SessMgr : StateMachine.TryTransition(Disconnected)
+
+SessMgr ->> App : <<SessionTerminated event>>
+note right: Includes duration,\nmessageCount, reason
+
+SessMgr --> L5 : Session closed
+deactivate SessMgr
+
+L5 --> App : Session closed
+deactivate L5
+
+' ================================================================================
+' SEQUENCE 5: COMMAND HANDLING EXAMPLE
+' ================================================================================
+
+newpage Command Handling - Read Variable Example
+
+App -> L7 : ProcessDownstreamAsync(ReadLogicalVariable, context)
+activate L7
+
+note over L7: Command: READ_LOGICAL_VARIABLE (0x01)\nData: [address_hi, address_lo]
+
+L7 -> L7 : Create ApplicationMessage
+L7 -> L7 : Serialize with command ID
+
+L7 --> App : Message sent downstream
+deactivate L7
+
+note over App, Remote: ... message traverses layers (see Transmission diagram) ...
+
+Remote -> L7 : ProcessUpstreamAsync(response, context)
+activate L7
+
+L7 -> L7 : Deserialize ApplicationMessage
+L7 -> L7 : Check IsAcknowledgment
+
+alt Is ACK Response
+    L7 -> Registry : DispatchAckAsync(message, context)
+    activate Registry
+    
+    Registry -> Registry : Lookup IAckHandler for\nREAD_LOGICAL_VARIABLE
+    
+    alt Handler registered
+        Registry -> "ReadVarAckHandler" as AckHandler : HandleAsync(message, context)
+        activate AckHandler
+        AckHandler -> AckHandler : Parse variable value\nfrom response data
+        AckHandler --> Registry : Handled
+        deactivate AckHandler
+    end
+    
+    Registry --> L7 : Dispatch complete
+    deactivate Registry
+    
+    L7 ->> App : <<AckReceived event>>\n(contains variable value)
+end
+
+L7 --> App : LayerResult.Success
+deactivate L7
+
+== Incoming Command Request ==
+
+Remote -> L7 : ProcessUpstreamAsync(command, context)
+activate L7
+
+note over L7: Remote device requesting\nto read our variable
+
+L7 -> L7 : Deserialize ApplicationMessage
+L7 -> L7 : CommandId = READ_LOGICAL_VARIABLE
+
+L7 -> Registry : DispatchAsync(message, context)
+activate Registry
+
+Registry -> "ReadLogicalVariableHandler" as ReadHandler : HandleAsync(message, context)
+activate ReadHandler
+
+ReadHandler -> ReadHandler : Extract address from message.Data
+ReadHandler -> "IVariableMap" as VarMap : ReadAsync(address)
+activate VarMap
+VarMap -> VarMap : Find VariableDefinition
+VarMap -> VarMap : Execute ReadHandler delegate
+VarMap --> ReadHandler : byte[] value
+deactivate VarMap
+
+ReadHandler -> ReadHandler : Create ACK response\nwith variable value
+ReadHandler --> Registry : ApplicationMessage (response)
+deactivate ReadHandler
+
+Registry --> L7 : Response message
+deactivate Registry
+
+L7 -> L7 : ProcessDownstreamAsync(response, context)
+note right: Send ACK with\nvariable value
+
+L7 ->> App : <<MessageReceived event>>
+
+L7 --> App : LayerResult.Success
+deactivate L7
+
+' ================================================================================
+' SEQUENCE 6: MULTI-CHUNK TRANSMISSION
+' ================================================================================
+
+newpage Multi-Chunk Message Flow
+
+App -> L4 : ProcessDownstreamAsync(largePayload, context)
+activate L4
+
+note over L4: Payload size: 450 bytes\nMax chunk size: 200 bytes\nResult: 3 chunks required
+
+L4 -> Chunker : CalculateChunkCount(450)
+Chunker --> L4 : 3 chunks
+
+L4 -> L4 : Get next PacketId (1-7 rolling)
+
+L4 -> Chunker : Split(payload, destId, packetId)
+activate Chunker
+
+Chunker -> Chunker : **Chunk 1 (First)**\nMetadata: PacketId=3, ChunksRemaining=2\nData: bytes[0..199]
+
+Chunker -> Chunker : **Chunk 2 (Middle)**\nMetadata: PacketId=3, ChunksRemaining=1\nData: bytes[200..399]
+
+Chunker -> Chunker : **Chunk 3 (Last)**\nMetadata: PacketId=3, ChunksRemaining=0\nData: bytes[400..449]
+
+Chunker --> L4 : List<TransportChunk>[3]
+deactivate Chunker
+
+loop for each chunk (1 to 3)
+    L4 -> L4 : Serialize chunk to bytes
+    L4 -> L3 : ProcessDownstreamAsync(chunkBytes, context)
+    L3 -> L2 : ProcessDownstreamAsync(data, context)
+    L2 -> L1 : ProcessDownstreamAsync(frameBytes, context)
+    L1 -> Channel : WriteAsync(data)
+    Channel -> Remote : <<transmit chunk>>
+    note right of Remote: Chunk transmitted
+end
+
+L4 --> App : All chunks sent
+deactivate L4
+
+== Reception and Reassembly ==
+
+loop for each incoming chunk
+    Remote -> L1 : <<receive chunk>>
+    L1 -> L2 : ProcessUpstreamAsync
+    L2 -> L3 : ProcessUpstreamAsync
+    L3 -> L4 : ProcessUpstreamAsync(chunkData, context)
+    activate L4
+    
+    L4 -> L4 : Deserialize to TransportChunk
+    L4 -> Reassembler : AddChunk(chunk)
+    activate Reassembler
+    
+    alt ChunksRemaining > 0
+        Reassembler -> Reassembler : Store in PacketBuffer
+        Reassembler --> L4 : ReassemblyResult.Incomplete
+        L4 --> L3 : LayerResult.Incomplete
+        note right: Wait for more chunks
+    else ChunksRemaining == 0 (Last chunk)
+        Reassembler -> Reassembler : Concatenate all chunks
+        Reassembler --> L4 : ReassemblyResult.Complete(fullPayload)
+        L4 -> L5 : ProcessUpstreamAsync(reassembledData, context)
+        note right: Continue to upper layers
+    end
+    deactivate Reassembler
+    
+    deactivate L4
+end
+
+note over App, Remote
+  **Multi-Chunk Complete**
+  Large payload split into 3 chunks,
+  transmitted separately, reassembled
+  into original message
+end note
+
+' ================================================================================
+' SEQUENCE 7: ERROR HANDLING
+' ================================================================================
+
+newpage Error Handling Scenarios
+
+== CRC Validation Failure ==
+
+Remote -> L1 : <<corrupted bytes>>
+activate L1
+
+L1 -> L2 : ProcessUpstreamAsync(data, context)
+activate L2
+
+L2 -> FrameHelper : Parse(buffer)
+FrameHelper --> L2 : ParseResult.Success(frame)
+
+L2 -> CRC : Compute(header + data)
+CRC --> L2 : calculatedCRC = 0x1234
+
+L2 -> L2 : Compare: frame.CRC16 (0x5678) ? calculated (0x1234)
+
+L2 --> L1 : LayerResult.Error("CRC validation failed")
+deactivate L2
+
+L1 --> L1 : Discard corrupted frame
+deactivate L1
+
+note over L1, L2: Frame discarded, no further processing
+
+== Parse Error ==
+
+Remote -> L1 : <<malformed frame>>
+activate L1
+
+L1 -> L2 : ProcessUpstreamAsync(data, context)
+activate L2
+
+L2 -> FrameHelper : Parse(buffer)
+activate FrameHelper
+FrameHelper -> FrameHelper : Buffer too short (< 9 bytes)
+FrameHelper --> L2 : ParseResult.Failure(BufferTooShort)
+deactivate FrameHelper
+
+L2 --> L1 : LayerResult.Error("BufferTooShort")
+deactivate L2
+
+L1 --> L1 : Handle parse error
+deactivate L1
+
+== Reassembly Timeout ==
+
+Remote -> L4 : <<chunk 1 of 3>>
+L4 -> Reassembler : AddChunk(chunk1)
+Reassembler --> L4 : Incomplete
+
+note over L4: Waiting for chunks 2 and 3...\nChunks never arrive
+
+L4 -> L4 : ReassemblyTimeout expires
+L4 -> Reassembler : Clear() for expired PacketId
+Reassembler --> L4 : Orphan chunks discarded
+
+L4 --> L3 : LayerResult.Error("Reassembly timeout")
+
+note over L4: Incomplete packet discarded
+
+== Encryption Key Missing ==
+
+App -> L6 : ProcessDownstreamAsync(data, context)
+activate L6
+
+note over L6: context.CryptType = AES128\nbut no key configured
+
+L6 -> Crypto : Encrypt(data, AES128)
+activate Crypto
+Crypto -> Crypto : HasKey(AES128) = false
+Crypto --> L6 : throw InvalidOperationException
+deactivate Crypto
+
+L6 --> App : LayerResult.Error("Encryption key not set")
+deactivate L6
+
+note over L6: Encryption failed, message not sent
+
+' ================================================================================
+' FOOTER
+' ================================================================================
+
+newpage Legend and Notes
+
+note over App, Remote
+  **STEM Communication Protocol - Sequence Diagram Legend**
+  ====
+  
+  **Layer Colors**
+  ----
+  • Green (#E0F2F1) - Application Domain (Layer 7)
+  • Yellow (#FFF8E1) - Security Domain (Layer 6)
+  • Indigo (#E8EAF6) - Session Domain (Layer 5)
+  • Red (#FFEBEE) - Transport Domain (Layer 4)
+  • Purple (#F3E5F5) - Routing Domain (Layer 3)
+  • Orange (#FFF3E0) - Framing Domain (Layer 2)
+  • Blue (#E3F2FD) - Physical Domain (Layer 1)
+  
+  **Message Types**
+  ----
+  ? Synchronous call
+  ?- Return/Response
+  ->> Asynchronous event
+  
+  **Key Constants**
+  ----
+  • Max Chunk Size: 200 bytes
+  • Packet ID Range: 1-7 (rolling)
+  • Session Timeout: 600 seconds (default)
+  • Heartbeat Interval: 2 seconds
+  • Max Hops: 5 (default)
+  • CRC: CRC-16
+  • Encryption: AES-128 ECB with PKCS7 padding
+  
+  **LayerResult States**
+  ----
+  • Success - Operation completed successfully
+  • Error - Operation failed with error message
+  • Incomplete - Waiting for more data (e.g., chunk reassembly)
+  • Skipped - Data passed through unchanged (e.g., duplicate broadcast)
+end note
+
+@enduml

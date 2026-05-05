@@ -1,0 +1,20 @@
+Nome Firmware,Codice scheda,Numero progetto,Valore Machine_Type,Valore Firmware_Type
+Scheda Motore Sherpa Slim,DIS0020275,PSL21-315,1,1
+Scheda tastiera Sherpa Slim,DIS0014782,PSL21-315,1,2
+Scheda madre Optimus,DIS0020516,PSL22-324,2,3
+Scheda tastiera per macchine a 12v,DIS0021335*,PSL22-324,2,4
+Scheda madre Eden,DIS0020477,PSL23-347,3,5
+Gradino,DIS0020516**,,4,6
+Gateway B2,,,5,7
+Display B2,,,5,8
+Hmi B2,,,5,9
+Modulo BLE,DIS0020254,,6,10
+Spark HMI,,PSL21-305,7,11
+Spark Motore,,,7,12
+Spark Rostro,,,7,13
+Toplift-A,,,8,14
+Scheda tastiera per macchine a 24v,,,,15
+Ozonizzatore,DIS0016566,PSL24-372,9,16
+Optimus XP,,,10,17
+R3L-XP Master,,,11,18
+R3L-XP Slave,,,11,20

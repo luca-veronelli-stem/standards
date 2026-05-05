@@ -1,0 +1,325 @@
+@startuml database-schema
+' =============================================================================
+' Stem.Dictionaries.Manager - Database Schema (Domain v7 + T-004 constraints)
+' Aggiornato: SESSION_050 (2026-04-13)
+' =============================================================================
+
+!define TABLE(name) entity name << (T,#004682) >>
+!define PK(field) <b>field</b>
+!define FK(field) <i>field</i>
+
+' === Palette STEM ===
+' Accent: #004682  Hover: #003461  Pressed: #2668A0
+' Success: #98D801  Error: #E40032  Warning: #FFC04A
+
+skinparam linetype ortho
+skinparam entity {
+    BackgroundColor #F0F4F8
+    BorderColor #004682
+    FontColor #1E1E1E
+    StereotypeFontColor White
+}
+skinparam note {
+    BackgroundColor #FFF8E1
+    BorderColor #FFC04A
+    FontColor #1E1E1E
+}
+skinparam legend {
+    BackgroundColor #E8EEF4
+    BorderColor #004682
+    FontColor #1E1E1E
+}
+
+' === UTENTI E AUDIT ===
+
+TABLE(Users) {
+    PK(Id) : int <<identity>>
+    --
+    Username : string(50) <<unique>>
+    DisplayName : string(100)
+    CreatedAt : datetime
+    UpdatedAt : datetime?
+}
+
+TABLE(AuditEntries) {
+    PK(Id) : int <<identity>>
+    --
+    EntityType : int (AuditEntityType enum)
+    EntityId : int
+    Operation : int (AuditOperation enum)
+    FK(ChangedById) : int → Users <<restrict>>
+    ChangedAt : datetime <<indexed>>
+    PreviousValue : text?
+    NewValue : text?
+    Notes : string(500)?
+}
+
+Users ||--o{ AuditEntries : "ChangedById\n(Restrict)"
+
+' === DISPOSITIVI ===
+
+TABLE(Devices) {
+    PK(Id) : int <<identity>>
+    --
+    Name : string(100) <<unique>>
+    Description : string(500)?
+    MachineCode : int <<unique>>
+    CreatedAt : datetime
+    UpdatedAt : datetime?
+    ..
+    CHECK CK_Devices_MachineCode
+    [MachineCode] > 0
+}
+
+' === SCHEDE ===
+
+TABLE(Boards) {
+    PK(Id) : int <<identity>>
+    --
+    FK(DeviceId) : int → Devices <<cascade>>
+    Name : string(50)
+    FirmwareType : int
+    BoardNumber : int
+    PartNumber : string(20)?
+    ProtocolAddress : uint <<unique>>
+    IsPrimary : bool
+    FK(DictionaryId) : int? → Dictionaries <<set null>>
+    CreatedAt : datetime
+    UpdatedAt : datetime?
+    ..
+    PARTIAL UNIQUE IX_Boards_DeviceId
+    WHERE [IsPrimary] = 1
+}
+
+Devices ||--o{ Boards : "DeviceId\n(Cascade)"
+
+' === DIZIONARI E VARIABILI ===
+
+TABLE(Dictionaries) {
+    PK(Id) : int <<identity>>
+    --
+    Name : string(50) <<unique>>
+    Description : string(500)?
+    IsStandard : bool
+    CreatedAt : datetime
+    UpdatedAt : datetime?
+    ..
+    PARTIAL UNIQUE IX_Dictionaries_IsStandard
+    WHERE [IsStandard] = 1
+}
+
+TABLE(Variables) {
+    PK(Id) : int <<identity>>
+    --
+    FK(DictionaryId) : int → Dictionaries <<cascade>>
+    Name : string(100)
+    AddressHigh : byte
+    AddressLow : byte
+    DataTypeKind : int (enum)
+    DataTypeParam : int?
+    DataTypeRaw : string(50)
+    Format : string(50)?
+    MinValue : double?
+    MaxValue : double?
+    Unit : string(20)?
+    AccessMode : int (enum)
+    Usage : string(200)?
+    Description : string(2000)?
+    IsEnabled : bool
+    WordSize : int? (8, 16, 32)
+    CreatedAt : datetime
+    UpdatedAt : datetime?
+    ..
+    UNIQUE (DictionaryId, AddressHigh, AddressLow)
+}
+
+TABLE(BitInterpretations) {
+    PK(Id) : int <<identity>>
+    --
+    FK(VariableId) : int → Variables <<cascade>>
+    FK(DictionaryId) : int? → Dictionaries <<restrict>>
+    WordIndex : int
+    BitIndex : int
+    Meaning : string(200)?
+    CreatedAt : datetime
+    UpdatedAt : datetime?
+    ..
+    CHECK CK_BitInterpretations_BitIndex
+    [BitIndex] >= 0
+    CHECK CK_BitInterpretations_WordIndex
+    [WordIndex] >= 0
+    PARTIAL UNIQUE (VariableId, WordIndex, BitIndex)
+    WHERE [DictionaryId] IS NULL
+    PARTIAL UNIQUE (VariableId, DictionaryId,
+    WordIndex, BitIndex)
+    WHERE [DictionaryId] IS NOT NULL
+}
+
+Dictionaries ||--o{ Variables : "DictionaryId\n(Cascade)"
+Dictionaries ||--o{ Boards : "DictionaryId\n(SetNull)"
+Variables ||--o{ BitInterpretations : "VariableId\n(Cascade)"
+Dictionaries ||--o{ BitInterpretations : "DictionaryId\n(Restrict)"
+
+' === COMANDI ===
+
+TABLE(Commands) {
+    PK(Id) : int <<identity>>
+    --
+    Name : string(100) <<unique>>
+    CodeHigh : byte
+    CodeLow : byte
+    IsResponse : bool
+    ParametersJson : string(1000)
+    CreatedAt : datetime
+    UpdatedAt : datetime?
+    ..
+    UNIQUE (CodeHigh, CodeLow, IsResponse)
+}
+
+TABLE(CommandDeviceStates) {
+    PK(Id) : int <<identity>>
+    --
+    FK(CommandId) : int → Commands <<cascade>>
+    FK(DeviceId) : int → Devices
+    IsEnabled : bool
+    CreatedAt : datetime
+    UpdatedAt : datetime?
+    ..
+    UNIQUE (CommandId, DeviceId)
+}
+
+Commands ||--o{ CommandDeviceStates : "CommandId\n(Cascade)"
+Devices ||--o{ CommandDeviceStates : "DeviceId"
+
+' === OVERRIDE VARIABILI STANDARD PER-DIZIONARIO (v7) ===
+
+TABLE(StandardVariableOverrides) {
+    PK(Id) : int <<identity>>
+    --
+    FK(DictionaryId) : int → Dictionaries <<cascade>>
+    FK(StandardVariableId) : int → Variables <<restrict>>
+    IsEnabled : bool
+    Description : string(2000)?
+    CreatedAt : datetime
+    UpdatedAt : datetime?
+    ..
+    UNIQUE (DictionaryId, StandardVariableId)
+}
+
+Dictionaries ||--o{ StandardVariableOverrides : "DictionaryId\n(Cascade)"
+Variables ||--o{ StandardVariableOverrides : "StandardVariableId\n(Restrict)"
+
+' === NOTE ===
+
+note bottom of Variables
+  **Category derivata:**
+  AddressHigh = 0x00 → Standard
+  AddressHigh = 0x80 → DeviceSpecific
+
+  **WordSize (BR-019):**
+  Solo per Bitmapped: 8, 16 o 32
+  Validato a livello codice.
+end note
+
+note bottom of BitInterpretations
+  **BR-017:** Unicità per 2 partial indexes
+  (SQL Server WHERE filter).
+  DictionaryId = NULL → template
+  DictionaryId = N → per-dizionario
+
+  **BR-018:** per-dizionario > template
+  (risoluzione a livello codice)
+end note
+
+note bottom of Commands
+  **BR-012:** CodeHigh computed
+  IsResponse ? 0x80 : 0x00
+  (calcolato a livello codice, GUI read-only)
+end note
+
+note bottom of StandardVariableOverrides
+  **BR-009:** stato effettivo variabile standard
+  !global → false; override → override; else → template
+
+  **BR-010:** max 1 per (DictionaryId, StandardVariableId)
+  → enforced da unique index
+
+  **BR-011:** coerenza IsEnabled
+  (validato a livello codice)
+
+  **BR-020:** descrizione effettiva
+  (risoluzione a livello codice)
+end note
+
+note bottom of Dictionaries
+  **BR-004:** Max 1 IsStandard = true
+  → partial unique index WHERE [IsStandard] = 1
+
+  Non-standard **eredita** tutte
+  le variabili standard (v7).
+  Override via StandardVariableOverrides.
+
+  **Semantica derivata (runtime):**
+  · Dedicated: 1 solo Device
+  · Shared: 2+ Device diversi
+  · Orphan: nessun Board associato
+end note
+
+note bottom of Boards
+  **BR-005:** Max 1 IsPrimary per Device
+  → partial unique index WHERE [IsPrimary] = 1
+
+  **BR-008:** BoardNumber 1..63
+  (validato a livello codice)
+
+  DictionaryId = NULL →
+  board senza dizionario proprio
+end note
+
+note bottom of Devices
+  **BR-014:** MachineCode > 0
+  → CHECK constraint CK_Devices_MachineCode
+
+  **BR-015:** MachineCode ≠ 6 (BLE)
+  (validato a livello codice)
+
+  Name e MachineCode entrambi unique.
+end note
+
+note bottom of AuditEntries
+  **Indici di ricerca:**
+  · (EntityType, EntityId)
+  · ChangedAt
+
+  AuditEntry è **immutabile**:
+  no Update, no Delete.
+  ChangedById → Users (Restrict).
+end note
+
+note bottom of CommandDeviceStates
+  Default IsEnabled = true
+  (se non esiste riga per un
+  Command+Device, il comando
+  è considerato attivo).
+end note
+
+' === LEGENDA ===
+
+legend right
+  **Legenda Delete Behavior FK**
+  ──────────────────────────────
+  **Cascade** : delete padre → delete figli
+  **SetNull** : delete padre → FK = NULL
+  **Restrict** : delete padre → bloccato se figli
+  ──────────────────────────────
+  **Defense in Depth**
+  Validazione in codice (UX) +
+  DB constraint (integrità).
+  ──────────────────────────────
+  **Partial Unique Index**
+  Solo SQL Server (WHERE filter).
+  SQLite usa EnsureCreated senza
+  partial indexes.
+end legend
+
+@enduml

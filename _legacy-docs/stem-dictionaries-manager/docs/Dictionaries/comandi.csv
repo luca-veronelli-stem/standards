@@ -1,0 +1,100 @@
+NOME COMANDO,CODICE CMD H (hex),CODICE CMD L (hex),DATI AGGIUNTIVI,,,,,,,,,,,,,,,,,,,,,,,,,,,
+Versione protocollo,0,0,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+Versione protocollo risposta ,80,0,VersioneH,VersioneL,,,,,,,,,,,,,,,,,,,,,,,,,,
+Leggi variabile logica,0,1,IndirizzoH,IndirizzoL,,,,,,,,,,,,,,,,,,,,,,,,,,
+Leggi variabile logica risposta,80,1,IndirizzoH,IndirizzoL,Valori di dimensione come da dizionario dati,,,,,,,,,,,,,,,,,,,,,,,,,
+Scrivi variabile logica,0,2,IndirizzoH,IndirizzoL,Valori di dimensione come da dizionario dati,,,,,,,,,,,,,,,,,,,,,,,,,
+Scrivi variabile logica risposta,80,2,IndirizzoH,IndirizzoL,,,,,,,,,,,,,,,,,,,,,,,,,,
+Leggi range di variabili,0,3,IndirizzoInizialeH,IndirizzoInizialeL,NumeroVariabiliH,NumeroVariabiliL,,,,,,,,,,,,,,,,,,,,,,,,
+Leggi range di variabili risposta,80,3,IndirizzoInizialeH,IndirizzoInizialeL,NumeroVariabiliH,NumeroVariabiliH,Valori di dimensione come da NumeroVariabiliHL,,,,,,,,,,,,,,,,,,,,,,,
+Scrivi area di memoria fisica,0,4,IndirizzoH,IndirizzoL,DimensioneArrayH,DimensioneArrayL,Valori di dimensione come da DimensioneArrayHL,,,,,,,,,,,,,,,,,,,,,,,
+Scrivi area di memoria fisica risposta,80,4,IndirizzoH,IndirizzoL,DimensioneArrayH,DimensioneArrayL,,,,,,,,,,,,,,,,,,,,,,,,
+Bootloader avvio procedura,0,5,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+Bootloader avvio procedura risposta,80,5,"Risultato
+(0 = ok, != 0 codice errore)",,,,,,,,,,,,,,,,,,,,,,,,,,,
+Bootloader fine procedura,0,6,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+Bootloader fine procedura risposta,80,6,"Risultato
+(0 = ok, != 0 codice errore)",,,,,,,,,,,,,,,,,,,,,,,,,,,
+Bootloader update pagina di memoria,0,7,FwTypeH,FwTypeL,NumeroPaginaHH,NumeroPaginaHL,NumeroPaginaLH,NumeroPaginaLL,DimensionePaginaHH,DimensionePaginaHL,DimensionePaginaLH,DimensionePaginaLL,ReservedHH,ReservedHL,ReservedLH,ReservedLL,Valori di dimensione come da DimensionePaginaHL,,,,,,,,,,,,,
+Bootloader update pagina di memoria risposta,80,7,FwTypeH,FwTypeL,NumeroPaginaHH,NumeroPaginaHL,NumeroPaginaLH,NumeroPaginaLL,DimensionePaginaHH,DimensionePaginaHL,DimensionePaginaLH,DimensionePaginaLL,ReservedHH,ReservedHL,ReservedLH,ReservedLL,"Risultato (0=ok, !=0 codice errore)",,,,,,,,,,,,,
+Avvia macchina,0,8,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+Avvia macchina risposta,80,8,"Risultato
+(0 = ok, != 0 codice errore)",,,,,,,,,,,,,,,,,,,,,,,,,,,
+Ferma macchina,0,9,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+Ferma macchina risposta,80,9,"Risultato
+(0 = ok, != 0 codice errore)",,,,,,,,,,,,,,,,,,,,,,,,,,,
+Riavvio dispositivo,0,A,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+Riavvio dispositivo risposta,80,A,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+Unlock caratteristica BLE,0,B,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+Lock caratteristica BLE,0,C,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+Up da telecomando,0,D,"Stato
+(0 = rilasciato, 1 = premuto)",,,,,,,,,,,,,,,,,,,,,,,,,,,
+Down da telecomando,0,E,"Stato
+(0 = rilasciato, 1 = premuto)",,,,,,,,,,,,,,,,,,,,,,,,,,,
+Inizio Apprendimento,0,F,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+Inizio Apprendimento Risposta,80,F,"Risultato
+(0 = ok, != 0 codice errore)",,,,,,,,,,,,,,,,,,,,,,,,,,,
+Salva Posizione,0,10,"Direzione
+(1 = scarico, 2 = carico, 3=entrambe)","Fermati?
+(0 = no, 1 = si)",,,,,,,,,,,,,,,,,,,,,,,,,,
+Salva Posizione Risposta,80,10,"Risultato
+(0 = ok, != 0 codice errore)",,,,,,,,,,,,,,,,,,,,,,,,,,,
+Fine Apprendimento,0,11,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+Fine Apprendimento Risposta,80,11,"Risultato
+(0 = ok, != 0 codice errore)",,,,,,,,,,,,,,,,,,,,,,,,,,,
+Comanda Piano,0,12,"Muovi
+(0 = no, 1 = si)",AngoloHH,AngoloH,AngoloLH,AngoloLL,,,,,,,,,,,,,,,,,,,,,,,
+Comanda Piano Risposta,80,12,"Risultato
+(0 = ok, != 0 non può muoversi)",,,,,,,,,,,,,,,,,,,,,,,,,,,
+Abilita pairing mode client BLE,0,13,Device Name[0],Device Name[1],Device Name[2],Device Name[3],Device Name[4],Device Name[5],Device Name[6],Device Name[7],Device Name[8],Device Name[9],,,,,,,,,,,,,,,,,,
+Disabilita pairing mode client BLE,0,14,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+Configura telemetria,0,15,"Tipo telemetria HH:
+il tipo è un codice univoco deciso dall'amministratore tramite portale all'atto del configurare la telemetria e viene usato per la decodifica dei dati binari",Tipo telemetria HL,Tipo telemetria LH,Tipo telemetria LL,"Indirizzo Destinazione HH
+Inddirizzo del protocollo Stema cui inviare i messaggi di telemetria",Indirizzo Destinazione HL,Indirizzo Destinazione LH,Indirizzo Destinazione LL,Istanza Telemetria: è il numero del task in cui faccio girare questa configurazione di telemetria,Periodo ms H,Periodo ms L,"Indirizzo Scheda HH 
+(normalmente è l'indirizzo della scheda da cui prelevi, 
+ma potrebbe essere anche quello di un'altra)",Indirizzo Scheda HL,Indirizzo Scheda LH,Indirizzo Scheda LL,Indirizzo Logico Data1 H,Indirizzo Logico Data1 L,…,Indirizzo Logico Data8 H (Il numero di variabili è dinamico e al massimo vale SP_TEL_N_VARS che viene configurato nel firmware),Indirizzo Logico Data8 L,,,,,,,,
+Imposta telemetria Risposta,80,15,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+Start telemetria,0,16,Istanza telemetria (è il numero del task o della tabella eeprom da attivare in lettura),,,,,,,,,,,,,,,,,,,,,,,,,,,
+Start telemetria Risposta,80,16,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+Stop telemetria,0,17,Istanza telemetria (è il numero del task o della tabella eeprom da attivare in lettura),,,,,,,,,,,,,,,,,,,,,,,,,,,
+Stop telemetria Risposta,80,17,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+Pacchetto di Telemetria,0,18,"Tipo telemetria HH:
+il tipo è un codice univoco deciso dall'amministratore tramite portale all'atto del configurare la telemetria e viene usato per la decodifica dei dati binari",Tipo telemetria HL,Tipo telemetria LH,Tipo telemetria LL,Dati in little endian," (viene inviato dall'unità al master
+  periodicamente quando si attiva la telemetria) ",,,,,,,,,,,,,,,,,,,,,,
+Configura log,0,19,"Tipo log HH:
+il tipo è un codice univoco deciso dall'amministratore tramite portale all'atto del configurare il log e viene usato per la decodifica dei dati binari dei record",Tipo log HL,Tipo log LH,Tipo log LL,"Istanza log:
+una macchina può gestire più istanze di datalogger",,Indirizzo Scheda Evento HL,Indirizzo Scheda Evento LH,Indirizzo Scheda Evento LL,Indirizzo Logico Evento H,Indirizzo Logico Evento L,Soglia Evento HH,Soglia Evento HL,Soglia Evento LH,Soglia Evento LL,Tipo trigger,Direzione trigger,Periodo ms H,Periodo ms L,Indirizzo Scheda HH,Indirizzo Scheda HL,Indirizzo Scheda LH,Indirizzo Scheda LL,Indirizzo Logico Data1 H,Indirizzo Logico Data1 L,…,Indirizzo Logico Data8 H,Indirizzo Logico Data8 L
+Start log,0,1A,Istanza log,,,,,,,,,,,,,,,,,,,,,,,,,,,
+Start log Risposta,80,1A,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+Stop log,0,1B,Istanza log,,,,,,,,,,,,,,,,,,,,,,,,,,,
+Stop log Risposta,80,1B,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+Richiesta log,0,1C,"Index HH:
+l'indice è un codice univoco incrementale nella macchina che viene assegnato ai vari record",Index HL,Index LH,Index LL,,,,,,,,,,,,,,,,,,,,,,,,
+Richiesta log Risposta,80,1C,Index HH,Index HL,Index LH,Index LL,Tipo log HH,Tipo log HL,Tipo log LH,Tipo log LL,Timestamp HH,Timestamp HL,Timestamp LH,Timestamp LL,Dati,,,,,,,,,,,,,,,
+Stato connessione client BLE,0,1D,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+Stato connessione client BLE Risposta,80,1D,"Stato
+(0 = non connesso, 1 = connesso)",RSSI connessione,,,,,,,,,,,,,,,,,,,,,,,,,,
+Connessione BLE,0,1E,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+Richiesta configurazione attuale log,0,1F,Istanza log,,,,,,,,,,,,,,,,,,,,,,,,,,,
+Richiesta configurazione attuale log risposta,80,1F,"Tipo log HH:
+il tipo è un codice univoco deciso dall'amministratore tramite portale all'atto del configurare il log e viene usato per la decodifica dei dati binari dei record",Tipo log HL,Tipo log LH,Tipo log LL,"Istanza log:
+una macchina può gestire più istanze di datalogger",Indirizzo Scheda Evento HH,Indirizzo Scheda Evento HL,Indirizzo Scheda Evento LH,Indirizzo Scheda Evento LL,Indirizzo Logico Evento H,Indirizzo Logico Evento L,Soglia Evento HH,Soglia Evento HL,Soglia Evento LH,Soglia Evento LL,Tipo trigger,Direzione trigger,Periodo ms H,Periodo ms L,Indirizzo Scheda HH,Indirizzo Scheda HL,Indirizzo Scheda LH,Indirizzo Scheda LL,Indirizzo Logico Data1 H,Indirizzo Logico Data1 L,…,Indirizzo Logico Data8 H,Indirizzo Logico Data8 L
+Richiesta info fat log,0,20,Istanza log,,,,,,,,,,,,,,,,,,,,,,,,,,,
+"Richiesta info fat log risposta (log usati, indice primo,etc)",80,20,Usati HH,Usati HL,Usati LH,Usati LL,Primo HH,Primo HL,Primo LH,Primo LL,Ultimo HH,Ultimo HL,Ultimo LH,Ultimo LL,,,,,,,,,,,,,,,,
+Inizia sessione dati per gateway,0,21,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+Termina sessione dati per gateway,0,22,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+Ind. Aut. chi siete,0,23,IdMachineType,IdFWType_H,IdFWType_L,"0 = non resetta battezzamento
+1 = resetta battezzamento",,,,,,,,,,,,,,,,,,,,,,,,
+Ind. Aut. chi sono,0,24,IdMachineType,IdFWType_H,IdFWType_L,ID0_ HH,ID0_ H,ID0_ L,ID0_ LL,ID1_ HH,ID1_ H,ID1_ L,ID1_ LL,ID2_ HH,ID2_ H,ID2_ L,ID2_ LL,,,,,,,,,,,,,
+Ind. Aut. battezzati,0,25,ID0_ HH,ID0_ H,ID0_ L,ID0_ LL,ID1_ HH,ID1_ H,ID1_ L,ID1_ LL,ID2_ HH,ID2_ H,ID2_ L,ID2_ LL,SP_Address_ HH,SP_Address_ H,SP_Address_ LL,SP_Address_ L,,,,,,,,,,,,
+Ind. Aut. risultato battezzamento,0,26,ID0_ HH,ID0_ H,ID0_ L,ID0_ LL,ID1_ HH,ID1_ H,ID1_ L,ID1_ LL,ID2_ HH,ID2_ H,ID2_ L,ID2_ LL,"Risultato
+(0 = ok, != 0 codice errore)",,,,,,,,,,,,,,,
+Ind. Aut. Start,0,27,IdFWType_H,IdFWType_L,,,,,,,,,,,,,,,,,,,,,,,,,,
+Up/Down da telecomando,0,28,"Stato
+(0 = rilasciato, 1 = premuto)",,,,,,,,,,,,,,,,,,,,,,,,,,,
+Reset valori EEPROM al default,0,29,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+Reset valori EEPROM al default Risposta,80,29,"Risultato
+(0 = ok, != 0 codice errore)",,,,,,,,,,,,,,,,,,,,,,,,,,,
+Esegui autotest,0,2A,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+Esegui autotest Risposta,80,2A,"Risultato
+(0 = ok, != 0 codice errore)",,,,,,,,,,,,,,,,,,,,,,,,,,,

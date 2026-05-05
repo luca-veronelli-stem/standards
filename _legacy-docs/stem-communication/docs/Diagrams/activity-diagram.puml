@@ -1,0 +1,1149 @@
+@startuml STEM Communication Protocol - Activity Diagram
+!theme plain
+skinparam activityShape octagon
+skinparam activityBorderThickness 2
+skinparam ArrowThickness 1.5
+skinparam ConditionStyle diamond
+
+title STEM Communication Protocol - Activity Diagrams
+caption Protocol v2.0 - Process Flows and Decision Logic
+
+' ================================================================================
+' ACTIVITY 1: PROTOCOL STACK INITIALIZATION
+' ================================================================================
+
+|#E0F2F1| Application Layer (7) |
+|#FFF8E1| Presentation Layer (6) |
+|#E8EAF6| Session Layer (5) |
+|#FFEBEE| Transport Layer (4) |
+|#F3E5F5| Network Layer (3) |
+|#FFF3E0| Data Link Layer (2) |
+|#E3F2FD| Physical Layer (1) |
+
+|Application Layer (7)|
+start
+:Receive InitializeAsync(config);
+
+if (LocalDeviceId == 0?) then (yes)
+    #FFCDD2:Return Error\n"LocalDeviceId required";
+    stop
+else (no)
+    :Store LocalDeviceId;
+endif
+
+:Create CommandHandlerRegistry;
+
+|Presentation Layer (6)|
+:InitializeAsync(config);
+:Create CryptoProvider;
+
+if (AES Key provided?) then (yes)
+    :SetKey(AES128, key);
+    :Store encryption key;
+else (no)
+    :Use default key;
+endif
+
+:Mark Layer Initialized;
+
+|Session Layer (5)|
+:InitializeAsync(config);
+:Create SessionManager;
+:Create SessionStateMachine;
+:Initialize State = Disconnected;
+
+if (EnableHeartbeat?) then (yes)
+    :Start Heartbeat Timer;
+    note right
+        Timer fires every
+        HeartbeatInterval (2s)
+    end note
+endif
+
+:Mark Layer Initialized;
+
+|Transport Layer (4)|
+:InitializeAsync(config);
+:Create PacketChunker(chunkSize);
+:Create ChunkReassembler;
+:Create PacketIdGenerator;
+:Mark Layer Initialized;
+
+|Network Layer (3)|
+:InitializeAsync(config);
+:Create RoutingTableManager;
+:Create DeviceDiscoveryService;
+:Create BroadcastManager;
+:Create RouteCalculator;
+:Create NetworkMetricsCollector;
+:Mark Layer Initialized;
+
+|Data Link Layer (2)|
+:InitializeAsync(config);
+:Initialize CRC16Calculator;
+:Mark Layer Initialized;
+
+|Physical Layer (1)|
+:InitializeAsync(config);
+:Create TX Buffer;
+:Create RX Buffer;
+
+:ConnectAsync(ChannelDriver);
+
+if (Connection successful?) then (yes)
+    :Mark Layer Initialized;
+    :Return true to all layers;
+else (no)
+    #FFCDD2:Return Error\n"Channel connection failed";
+    stop
+endif
+
+|Application Layer (7)|
+:All Layers Initialized;
+#C8E6C9:Stack Ready;
+stop
+
+' ================================================================================
+' ACTIVITY 2: MESSAGE TRANSMISSION (DOWNSTREAM)
+' ================================================================================
+
+newpage Message Transmission (Downstream Flow)
+
+|#E0F2F1| Application |
+|#E0F2F1| App Layer (7) |
+|#FFF8E1| Presentation (6) |
+|#E8EAF6| Session (5) |
+|#FFEBEE| Transport (4) |
+|#F3E5F5| Network (3) |
+|#FFF3E0| DataLink (2) |
+|#E3F2FD| Physical (1) |
+
+|Application|
+start
+:Send Message Request;
+:Create LayerContext;
+note right
+    Context contains:
+    • TransactionId
+    • SenderId
+    • DestinationId
+    • CryptType
+    • Direction = Downstream
+end note
+
+|App Layer (7)|
+:ProcessDownstreamAsync(payload, context);
+
+if (IsInitialized?) then (no)
+    #FFCDD2:Return Error\n"Layer not initialized";
+    stop
+else (yes)
+endif
+
+:Create ApplicationMessage;
+:Set Command ID;
+:Serialize Message;
+
+|Presentation (6)|
+:ProcessDownstreamAsync(data, context);
+
+switch (context.CryptType?)
+case (NO_CRYPT)
+    :Skip encryption;
+    :Pass data unchanged;
+case (AES128)
+    :Get AES key from CryptoProvider;
+    
+    if (Key exists?) then (no)
+        #FFCDD2:Return Error\n"Encryption key not set";
+        stop
+    else (yes)
+    endif
+    
+    :Calculate padded length;
+    :Add PKCS7 Padding;
+    :Encrypt with AES-128 ECB;
+    :Store OriginalPayloadLength\nin context;
+endswitch
+
+|Session (5)|
+:ProcessDownstreamAsync(data, context);
+:RecordActivity();
+:Update LastActivityTime;
+
+if (State == Disconnected?) then (yes)
+    :OpenSession(destinationId);
+    :Transition to Connected;
+    :Fire SessionEstablished event;
+endif
+
+:UpdateRemoteDevice(destinationId);
+
+|Transport (4)|
+:ProcessDownstreamAsync(data, context);
+:Calculate chunk count;
+
+if (data.Length > MaxChunkDataSize?) then (yes)
+    :Get next PacketId (1-7);
+    
+    partition "Chunking Process" {
+        :Split payload into chunks;
+        
+        repeat
+            :Create TransportChunk;
+            :Set ChunkMetadata;
+            note right
+                • Version
+                • PacketId
+                • ChunksRemaining
+            end note
+            :Serialize chunk;
+            :Send to Network Layer;
+        repeat while (more chunks?) is (yes)
+        -> no;
+    }
+else (no)
+    :Create single chunk;
+    :Set ChunksRemaining = 0;
+endif
+
+|Network (3)|
+:ProcessDownstreamAsync(data, context);
+
+if (IsBroadcast?) then (yes)
+    note right
+        DestinationId ==
+        0xFFFFFFFF
+    end note
+    :MarkBroadcastProcessed;
+    :Set NextHop = null;
+else (no)
+    :Query RoutingTable;
+    
+    if (Route exists?) then (yes)
+        :Get RouteInfo;
+        :Set context.NextHop;
+        :Increment HopCount;
+        
+        if (HopCount > MaxHops?) then (yes)
+            #FFCDD2:Return Error\n"Max hops exceeded";
+            stop
+        endif
+    else (no)
+        :Use direct routing;
+        :NextHop = DestinationId;
+    endif
+endif
+
+:RecordPacketSent(deviceId);
+
+|DataLink (2)|
+:ProcessDownstreamAsync(data, context);
+
+partition "Frame Building" {
+    :Create DataLinkFrame;
+    :Set Crypt field;
+    :Set SenderId (4 bytes);
+    :Set Length field;
+    :Copy payload data;
+    
+    :Calculate CRC16;
+    fork
+        :Process header bytes;
+    fork again
+        :Process data bytes;
+    end fork
+    :Set CRC16 High/Low bytes;
+    
+    :Serialize frame to bytes;
+}
+
+|Physical (1)|
+:ProcessDownstreamAsync(frameBytes, context);
+
+:Write to TxBuffer;
+
+if (Buffer has space?) then (yes)
+    :Store bytes in buffer;
+else (no)
+    :Wait for buffer space;
+    note right: May block or return error
+end note
+endif
+
+:WriteAsync to ChannelDriver;
+
+if (Write successful?) then (yes)
+    :Update buffer statistics;
+    #C8E6C9:Return LayerResult.Success;
+else (no)
+    #FFCDD2:Return Error\n"Channel write failed";
+endif
+
+|Application|
+:Message Transmitted;
+stop
+
+' ================================================================================
+' ACTIVITY 3: MESSAGE RECEPTION (UPSTREAM)
+' ================================================================================
+
+newpage Message Reception (Upstream Flow)
+
+|#E3F2FD| Physical (1) |
+|#FFF3E0| DataLink (2) |
+|#F3E5F5| Network (3) |
+|#FFEBEE| Transport (4) |
+|#E8EAF6| Session (5) |
+|#FFF8E1| Presentation (6) |
+|#E0F2F1| App Layer (7) |
+|#E0F2F1| Application |
+
+|Physical (1)|
+start
+:Data received from Channel;
+:ReadAsync from ChannelDriver;
+
+if (Data available?) then (no)
+    :Return Incomplete;
+    stop
+else (yes)
+endif
+
+:Write to RxBuffer;
+:Update buffer statistics;
+
+|DataLink (2)|
+:ProcessUpstreamAsync(rawData, context);
+
+partition "Frame Parsing" {
+    :Parse buffer;
+    
+    if (Buffer length >= MIN_FRAME_SIZE?) then (no)
+        #FFCDD2:Return Error\n"BufferTooShort";
+        stop
+    else (yes)
+    endif
+    
+    :Extract Crypt field (1 byte);
+    :Extract SenderId (4 bytes);
+    :Extract Length (2 bytes);
+    
+    if (Length > MAX_LENGTH?) then (yes)
+        #FFCDD2:Return Error\n"LengthExceedsMaximum";
+        stop
+    endif
+    
+    :Extract payload data;
+    :Extract CRC16 (2 bytes);
+}
+
+partition "CRC Validation" {
+    :Calculate CRC16 on\nheader + payload;
+    
+    if (Calculated CRC == Frame CRC?) then (no)
+        #FFCDD2:Return Error\n"CRC validation failed";
+        stop
+    else (yes)
+        :CRC Valid;
+    endif
+}
+
+:Set context.SenderId;
+:Set context.CryptType;
+
+|Network (3)|
+:ProcessUpstreamAsync(payload, context);
+
+if (IsBroadcast?) then (yes)
+    :Check BroadcastManager;
+    
+    if (IsBroadcastProcessed?) then (yes)
+        #E1F5FE:Return Skipped\n(duplicate broadcast);
+        stop
+    else (no)
+        :MarkBroadcastProcessed;
+    endif
+endif
+
+:Learn route from sender;
+:AddRoute(senderId, senderId, 1);
+
+if (IsForLocalDevice?) then (yes)
+    :Continue upstream;
+else (no)
+    if (ForwardingEnabled?) then (yes)
+        :Calculate next hop;
+        :Forward packet;
+        note right: Re-enter downstream flow
+    else (no)
+        #E1F5FE:Return Skipped;
+        stop
+    endif
+endif
+
+:RecordPacketReceived(senderId);
+
+|Transport (4)|
+:ProcessUpstreamAsync(data, context);
+
+:Deserialize TransportChunk;
+:Extract ChunkMetadata;
+
+partition "Chunk Reassembly" {
+    :Get PacketId from metadata;
+    :AddChunk to Reassembler;
+    
+    if (IsFirstChunk?) then (yes)
+        :Create new PacketBuffer;
+        :Store chunk data;
+    else (no)
+        if (PacketBuffer exists?) then (no)
+            #FFCDD2:Return Error\n"OrphanChunk";
+            stop
+        endif
+        :Append to existing buffer;
+    endif
+    
+    if (ChunksRemaining == 0?) then (yes)
+        :Concatenate all chunks;
+        :Clear PacketBuffer;
+        :ReassemblyResult.Complete;
+    else (no)
+        #E1F5FE:Return Incomplete\n(waiting for more chunks);
+        stop
+    endif
+}
+
+|Session (5)|
+:ProcessUpstreamAsync(data, context);
+:RecordActivity();
+:UpdateRemoteDevice(senderId);
+
+if (Session not active?) then (yes)
+    :OpenSession(senderId);
+    :Transition to Connected;
+endif
+
+|Presentation (6)|
+:ProcessUpstreamAsync(data, context);
+
+switch (context.CryptType?)
+case (NO_CRYPT)
+    :Skip decryption;
+    :Pass data unchanged;
+case (AES128)
+    :Get AES key from CryptoProvider;
+    
+    if (Key exists?) then (no)
+        #FFCDD2:Return Error\n"Decryption key not set";
+        stop
+    else (yes)
+    endif
+    
+    :Decrypt with AES-128 ECB;
+    :Remove PKCS7 Padding;
+    :Trim to OriginalPayloadLength;
+endswitch
+
+|App Layer (7)|
+:ProcessUpstreamAsync(data, context);
+
+:Deserialize ApplicationMessage;
+:Extract Command ID;
+
+if (IsAcknowledgment?) then (yes)
+    note right
+        ACK flag set
+        (CommandId & 0x8000)
+    end note
+    
+    :Dispatch to AckHandler;
+    :Find IAckHandler for command;
+    
+    if (Handler found?) then (yes)
+        :Execute HandleAsync;
+    endif
+    
+    :Fire AckReceived event;
+else (no)
+    :Dispatch to CommandHandler;
+    
+    if (Handler registered?) then (yes)
+        :Execute HandleAsync;
+        
+        if (Response generated?) then (yes)
+            :Send response downstream;
+            note right: ACK or data response
+        endif
+    else (no)
+        if (DefaultHandler set?) then (yes)
+            :Execute DefaultHandler;
+        endif
+    endif
+    
+    :Fire MessageReceived event;
+endif
+
+|Application|
+#C8E6C9:Message Received;
+stop
+
+' ================================================================================
+' ACTIVITY 4: SESSION STATE MACHINE
+' ================================================================================
+
+newpage Session State Machine
+
+|#E8EAF6| Session Layer |
+
+start
+:Session State Machine;
+
+partition "State: Disconnected" #FFEBEE {
+    :Initial State;
+    
+    if (OpenSession called?) then (yes)
+        :Validate remote device ID;
+        :Set session start time;
+        :Transition to Initialized;
+    else (no)
+        :Remain Disconnected;
+    endif
+}
+
+partition "State: Initialized" #FFF3E0 {
+    :Session Initialized;
+    
+    if (First message sent/received?) then (yes)
+        :Record activity;
+        :Transition to Connected;
+        :Fire SessionEstablished event;
+    elseif (Timeout expired?) then (yes)
+        :Transition to Disconnected;
+    else (no)
+        :Remain Initialized;
+    endif
+}
+
+partition "State: Connected" #C8E6C9 {
+    :Session Active;
+    
+    fork
+        :Process messages;
+        repeat
+            :Record activity on each message;
+        repeat while (messages?) is (yes)
+    fork again
+        :Heartbeat monitoring;
+        repeat
+            :Check session timeout;
+            
+            if (IdleTime > SessionTimeout?) then (yes)
+                :Fire SessionExpired event;
+                :Transition to Closing;
+            endif
+        repeat while (session active?) is (yes)
+    end fork
+    
+    if (CloseSession called?) then (yes)
+        :Transition to Closing;
+    endif
+}
+
+partition "State: Closing" #E1F5FE {
+    :Session Closing;
+    
+    :Calculate session duration;
+    :Get message count;
+    :Fire SessionTerminated event;
+    :Clear session data;
+    :Transition to Disconnected;
+}
+
+stop
+
+' ================================================================================
+' ACTIVITY 5: CRC16 CALCULATION
+' ================================================================================
+
+newpage CRC16 Calculation Algorithm
+
+|#FFF3E0| CRC16 Calculator |
+
+start
+:Initialize CRC = 0xFFFF;
+:Receive byte array;
+
+repeat :For each byte in data;
+    :XOR byte with CRC low byte;
+    
+    repeat :For i = 0 to 7;
+        if (CRC & 0x0001 == 1?) then (yes)
+            :CRC = (CRC >> 1) XOR 0xA001;
+            note right: Polynomial: 0xA001
+        else (no)
+            :CRC = CRC >> 1;
+        endif
+    repeat while (i < 8?) is (yes)
+    -> no;
+    
+repeat while (more bytes?) is (yes)
+-> no;
+
+:Extract HighByte = (CRC >> 8) & 0xFF;
+:Extract LowByte = CRC & 0xFF;
+
+#C8E6C9:Return CRC16 value;
+stop
+
+' ================================================================================
+' ACTIVITY 6: PACKET CHUNKING
+' ================================================================================
+
+newpage Packet Chunking Process
+
+|#FFEBEE| Transport Layer - Chunker |
+
+start
+:Receive payload to chunk;
+:Get destination ID;
+:Get packet ID (1-7);
+
+:Calculate chunk count;
+note right
+    chunkCount = ceil(payloadLength / maxChunkDataSize)
+    maxChunkDataSize = 200 bytes
+end note
+
+if (chunkCount > MAX_CHUNKS_PER_PACKET?) then (yes)
+    #FFCDD2:Error: Payload too large;
+    stop
+endif
+
+:Initialize chunk list;
+:offset = 0;
+:chunksRemaining = chunkCount - 1;
+
+repeat :Create chunk;
+    partition "Build Chunk" {
+        :Calculate chunk data size;
+        note right
+            min(remaining, maxChunkDataSize)
+        end note
+        
+        :Create ChunkMetadata;
+        :Set Version = 0;
+        :Set PacketId;
+        :Set ChunksRemaining;
+        
+        :Create TransportChunk;
+        :Set DestinationId;
+        :Copy data slice [offset..offset+size];
+        
+        :Add chunk to list;
+    }
+    
+    :offset += chunk size;
+    :chunksRemaining--;
+    
+repeat while (chunksRemaining >= 0?) is (yes)
+-> no;
+
+#C8E6C9:Return List<TransportChunk>;
+stop
+
+' ================================================================================
+' ACTIVITY 7: CHUNK REASSEMBLY
+' ================================================================================
+
+newpage Chunk Reassembly Process
+
+|#FFEBEE| Transport Layer - Reassembler |
+
+start
+:Receive TransportChunk;
+:Extract PacketId;
+:Extract ChunksRemaining;
+
+if (IsFirstChunk (no existing buffer)?) then (yes)
+    :Create new PacketBuffer;
+    :Initialize with expected chunks;
+    :Store in _packetBuffers[packetId];
+else (no)
+    :Retrieve existing PacketBuffer;
+    
+    if (Buffer not found?) then (yes)
+        #FFCDD2:Return Error\n"OrphanChunk";
+        stop
+    endif
+endif
+
+:Append chunk data to buffer;
+:Decrement expected chunks;
+
+if (ChunksRemaining == 0?) then (yes)
+    partition "Complete Reassembly" {
+        :Get total data length;
+        :Allocate result buffer;
+        
+        :Concatenate all chunk data;
+        
+        :Remove PacketBuffer from dictionary;
+        :Clear buffer memory;
+    }
+    
+    #C8E6C9:Return ReassemblyResult.Complete(data);
+else (no)
+    #E1F5FE:Return ReassemblyResult.Incomplete;
+endif
+
+stop
+
+' ================================================================================
+' ACTIVITY 8: AES ENCRYPTION/DECRYPTION
+' ================================================================================
+
+newpage AES-128 Encryption Process
+
+|#FFF8E1| Presentation Layer - Encryption |
+
+partition "Encryption" #E8F5E9 {
+    start
+    :Receive plaintext data;
+    :Get AES-128 key;
+    
+    :Calculate padded length;
+    note right
+        paddedLen = ((len + 15) / 16) * 16
+        (multiple of 16 bytes)
+    end note
+    
+    partition "PKCS7 Padding" {
+        :paddingSize = 16 - (len % 16);
+        :If len % 16 == 0, paddingSize = 16;
+        :Append paddingSize bytes\neach with value paddingSize;
+    }
+    
+    :Initialize AES-128 ECB mode;
+    
+    repeat :For each 16-byte block;
+        :Encrypt block;
+        :Store encrypted block;
+    repeat while (more blocks?) is (yes)
+    -> no;
+    
+    #C8E6C9:Return encrypted data;
+    stop
+}
+
+newpage AES-128 Decryption Process
+
+|#FFF8E1| Presentation Layer - Decryption |
+
+partition "Decryption" #FFF3E0 {
+    start
+    :Receive encrypted data;
+    :Get AES-128 key;
+    :Get original payload length (optional);
+    
+    if (data.Length % 16 != 0?) then (yes)
+        #FFCDD2:Error: Invalid block size;
+        stop
+    endif
+    
+    :Initialize AES-128 ECB mode;
+    
+    repeat :For each 16-byte block;
+        :Decrypt block;
+        :Store decrypted block;
+    repeat while (more blocks?) is (yes)
+    -> no;
+    
+    partition "PKCS7 Padding Removal" {
+        :lastByte = decrypted[len-1];
+        :paddingSize = lastByte;
+        
+        if (paddingSize > 16 OR paddingSize == 0?) then (yes)
+            #FFCDD2:Error: Invalid padding;
+            stop
+        endif
+        
+        :Verify all padding bytes == paddingSize;
+        
+        if (Padding valid?) then (yes)
+            :Remove paddingSize bytes;
+        else (no)
+            #FFCDD2:Error: Padding verification failed;
+            stop
+        endif
+    }
+    
+    if (originalLength provided?) then (yes)
+        :Trim to originalLength;
+    endif
+    
+    #C8E6C9:Return decrypted data;
+    stop
+}
+
+' ================================================================================
+' ACTIVITY 9: ROUTING DECISION
+' ================================================================================
+
+newpage Routing Decision Process
+
+|#F3E5F5| Network Layer - Routing |
+
+start
+:Receive packet for routing;
+:Extract destination ID;
+
+if (DestinationId == 0xFFFFFFFF?) then (yes)
+    partition "Broadcast Handling" #E1F5FE {
+        :Check if broadcast processed;
+        
+        if (Duplicate broadcast?) then (yes)
+            #E1F5FE:Skip (already processed);
+            stop
+        else (no)
+            :Mark broadcast processed;
+            :Continue processing;
+        endif
+    }
+else (no)
+    partition "Unicast Routing" #C8E6C9 {
+        :Query RoutingTableManager;
+        :GetRoute(destinationId);
+        
+        if (Route found?) then (yes)
+            :Get RouteInfo;
+            :nextHop = route.NextHop;
+            :hopCount = route.HopCount;
+            
+            partition "Route Viability Check" {
+                :Check link quality;
+                :Check hop count;
+                
+                if (Route viable?) then (no)
+                    :Try alternate route;
+                endif
+            }
+        else (no)
+            switch (Routing Strategy?)
+            case (Direct)
+                :nextHop = destinationId;
+            case (Discover)
+                :Initiate device discovery;
+                :Wait for route;
+            case (Error)
+                #FFCDD2:Error: No route to host;
+                stop
+            endswitch
+        endif
+    }
+endif
+
+:Update context.NextHop;
+:Increment context.HopCount;
+
+if (HopCount > MaxHops?) then (yes)
+    #FFCDD2:Error: TTL exceeded;
+    stop
+endif
+
+:Record metrics;
+:UpdateLinkQuality;
+
+#C8E6C9:Continue to DataLink Layer;
+stop
+
+' ================================================================================
+' ACTIVITY 10: COMMAND DISPATCH
+' ================================================================================
+
+newpage Command Handler Dispatch
+
+|#E0F2F1| Application Layer - Command Dispatch |
+
+start
+:Receive ApplicationMessage;
+:Extract CommandId;
+:Mask ACK flag: cmdId & 0x7FFF;
+
+if (IsAcknowledgment?) then (yes)
+    partition "ACK Dispatch" #E1F5FE {
+        :Lookup _ackHandlers[cmdId];
+        
+        if (IAckHandler found?) then (yes)
+            :Execute handler.HandleAsync();
+            :Handler processes ACK;
+        else (no)
+            :No ACK handler registered;
+            note right: ACK may be ignored
+        endif
+        
+        :Fire AckReceived event;
+    }
+else (no)
+    partition "Command Dispatch" #C8E6C9 {
+        :Lookup _commandHandlers[cmdId];
+        
+        if (ICommandHandler found?) then (yes)
+            :Execute handler.HandleAsync();
+            
+            if (Response returned?) then (yes)
+                :Create ACK message;
+                :Set ACK flag on command;
+                :Send response downstream;
+            endif
+        else (no)
+            if (DefaultHandler set?) then (yes)
+                :Execute _defaultHandler();
+            else (no)
+                :Command unhandled;
+                note right: May log warning
+            endif
+        endif
+        
+        :Fire MessageReceived event;
+    }
+endif
+
+#C8E6C9:Dispatch complete;
+stop
+
+' ================================================================================
+' ACTIVITY 11: BUFFER MANAGEMENT
+' ================================================================================
+
+newpage Buffer Management
+
+|#E3F2FD| Physical Layer - Buffers |
+
+partition "TX Buffer Write" #C8E6C9 {
+    start
+    :Receive data to transmit;
+    
+    :Lock TxBuffer;
+    
+    if (data.Length > FreeSpace?) then (yes)
+        :Wait or return overflow;
+        note right
+            May block until
+            space available
+        end note
+    endif
+    
+    :Copy data to buffer;
+    :Update _position;
+    :Update statistics;
+    :Unlock TxBuffer;
+    
+    #C8E6C9:Return bytes written;
+    stop
+}
+
+partition "RX Buffer Write" #E1F5FE {
+    start
+    :Receive data from channel;
+    
+    :Lock RxBuffer;
+    
+    if (data.Length > FreeSpace?) then (yes)
+        :Discard overflow bytes;
+        :Increment Overflows counter;
+        :Update BytesDiscarded;
+    endif
+    
+    :Calculate write position;
+    note right: Circular buffer handling
+    
+    if (_writePosition + count > Capacity?) then (yes)
+        :Split write at buffer end;
+        :Wrap to beginning;
+    endif
+    
+    :Copy data to buffer;
+    :Update _writePosition;
+    :Update _dataLength;
+    :Update statistics;
+    :Unlock RxBuffer;
+    
+    #C8E6C9:Return bytes written;
+    stop
+}
+
+partition "RX Buffer Read" #FFF3E0 {
+    start
+    :Request count bytes;
+    
+    :Lock RxBuffer;
+    
+    if (count > Available?) then (yes)
+        :count = Available;
+    endif
+    
+    :Calculate read position;
+    
+    if (_readPosition + count > Capacity?) then (yes)
+        :Split read at buffer end;
+        :Wrap to beginning;
+    endif
+    
+    :Copy data from buffer;
+    :Update _readPosition;
+    :Update _dataLength;
+    :Update statistics;
+    :Unlock RxBuffer;
+    
+    #C8E6C9:Return data bytes;
+    stop
+}
+
+' ================================================================================
+' ACTIVITY 12: ERROR HANDLING FLOW
+' ================================================================================
+
+newpage Error Handling Strategies
+
+|#FFCDD2| Error Handling |
+
+start
+:Error detected in layer;
+
+switch (Error Type?)
+
+case (CRC Mismatch)
+    partition "CRC Error" {
+        :Log CRC error;
+        :Discard corrupted frame;
+        :Increment error counter;
+        :Return LayerResult.Error;
+    }
+
+case (Parse Error)
+    partition "Parse Error" {
+        :Identify parse error type;
+        
+        switch (ParseError?)
+        case (BufferTooShort)
+            :Wait for more data;
+            :Return Incomplete;
+        case (LengthExceedsMaximum)
+            :Discard frame;
+            :Return Error;
+        case (LengthMismatch)
+            :Discard frame;
+            :Return Error;
+        endswitch
+    }
+
+case (Reassembly Error)
+    partition "Reassembly Error" {
+        switch (ReassemblyError?)
+        case (OrphanChunk)
+            :Log orphan chunk;
+            :Discard chunk;
+        case (Timeout)
+            :Clear packet buffer;
+            :Log timeout;
+        case (ChunksRemainingMismatch)
+            :Clear packet buffer;
+            :Return Error;
+        endswitch
+    }
+
+case (Encryption Error)
+    partition "Encryption Error" {
+        if (Key missing?) then (yes)
+            :Return Error "Key not set";
+        elseif (Invalid padding?) then (yes)
+            :Return Error "Padding error";
+        else
+            :Return Error "Encryption failed";
+        endif
+    }
+
+case (Session Error)
+    partition "Session Error" {
+        if (Session expired?) then (yes)
+            :Fire SessionExpired event;
+            :Close session;
+        elseif (Invalid state transition?) then (yes)
+            :Log invalid transition;
+            :Remain in current state;
+        endif
+    }
+
+case (Channel Error)
+    partition "Channel Error" {
+        :Log channel error;
+        :Attempt reconnection;
+        
+        if (Reconnection successful?) then (yes)
+            :Resume operations;
+        else (no)
+            :Mark layer uninitialized;
+            :Return Error;
+        endif
+    }
+
+endswitch
+
+:Error handled;
+stop
+
+' ================================================================================
+' LEGEND
+' ================================================================================
+
+newpage Legend and Color Codes
+
+|#FAFAFA| Legend |
+
+start
+note right
+    **STEM Communication Protocol**
+    **Activity Diagram Legend**
+    ====
+    
+    **Layer Colors**
+    ----
+    ?? #E0F2F1 - Application Layer (7)
+    ?? #FFF8E1 - Presentation Layer (6)
+    ?? #E8EAF6 - Session Layer (5)
+    ?? #FFEBEE - Transport Layer (4)
+    ?? #F3E5F5 - Network Layer (3)
+    ?? #FFF3E0 - Data Link Layer (2)
+    ?? #E3F2FD - Physical Layer (1)
+    
+    **Result Colors**
+    ----
+    ?? #C8E6C9 - Success
+    ?? #E1F5FE - Skipped/Incomplete
+    ?? #FFCDD2 - Error
+    ?? #FFF3E0 - Warning
+    
+    **Key Constants**
+    ----
+    • Max Chunk Size: 200 bytes
+    • Max Chunks: 1023 per packet
+    • Packet ID Range: 1-7 (rolling)
+    • CRC Polynomial: 0xA001 (CRC-16)
+    • AES Block Size: 16 bytes
+    • AES Key Size: 16 bytes (128-bit)
+    • Session Timeout: 600 seconds
+    • Heartbeat Interval: 2 seconds
+    • Max Hops: 5 (default)
+    
+    **LayerResult Types**
+    ----
+    • Success - Operation completed
+    • Error - Operation failed
+    • Incomplete - Waiting for data
+    • Skipped - Passed through
+end note
+stop
+
+@enduml
