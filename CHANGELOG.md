@@ -14,6 +14,9 @@ The version number is the git tag (`v1.0.0`, `v1.1.0`, …). There is no version
 
 ## [Unreleased]
 
+### Changed
+- Applied the conventional-commits label set (`feat`, `fix`, `chore`, `docs`, `refactor`, `test`, `ci`) to this repo, matching the vocabulary the `new-repository` skill installs on STEM work repos. Existing issues #13 and PRs #11 / #12 were retroactively labelled. Closes #14.
+
 ## [1.0.1] - 2026-05-05
 
 ### Fixed
