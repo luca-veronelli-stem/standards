@@ -14,6 +14,12 @@ The version number is the git tag (`v1.0.0`, `v1.1.0`, …). There is no version
 
 ## [Unreleased]
 
+### Added
+- Eight new standards under `shared/standards/`, promoted from `stem-communication`'s legacy `Docs/Standards/` and genericized for cross-repo use: `EVENTARGS`, `VISIBILITY`, `LOGGING`, `THREAD_SAFETY`, `CANCELLATION`, `COMMENTS`, `ERROR_HANDLING`, `CONFIGURATION`. Each is English-native, drops the rule-code bureaucracy (TS-001, EA-001, …), and is archetype-aware (different rules for libraries vs apps where the data justified it). The `COMMENTS` standard explicitly drops the legacy "Italian for All" principle in favor of the CLAUDE.md English-by-default rule. The `CONFIGURATION` standard renames "Layer" to "Service / Component" so apps and libraries both adopt the fail-fast validation pattern. The `ERROR_HANDLING` standard is genericized away from `LayerResult` and per-layer error-code prefixes. Closes part of #20.
+- `shared/templates/docs/STANDARD_TEMPLATE.md` — meta-template for authoring future standards. Matches the v1.0/v1.2.0 house style (stability+principle blockquote, prose-driven sections, no rule codes, no severity markers).
+- `shared/templates/docs/README_TEMPLATE.md` — per-component README template. Stripped of OSI/protocol-Layer content; covers any project/component with required/optional/B-only sections.
+- `shared/templates/archetypes/B/docs/API_SURFACE.md` — library API surface template (archetype B only). Apps don't have a public surface.
+
 ### Fixed
 - `claude/rules/dual-remote.md`: rewrote the mirror-workflow setup. Bitbucket Cloud access keys are read-only, so the previous "enable Has write access" instruction couldn't be followed (the toggle no longer exists in the UI; the first mirror push fails with `fatal: Could not read from remote repository.`). The new flow registers a single shared SSH key (`~/.ssh/bb_mirror_shared`) on the Bitbucket user profile and reuses it across all mirror repos via per-repo `BITBUCKET_SSH_KEY` secrets. Added a Cleanup section for migrating from the old per-repo `bb_mirror_<repo>` keys. The workflow YAML itself is unchanged. Closes #25.
 

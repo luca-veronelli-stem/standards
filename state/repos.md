@@ -37,3 +37,9 @@ When a repo is bumped to a new Standard version:
 - `v1.0.0` — git tag from `llm-settings`. Always with the `v` prefix, always full SemVer triple.
 - `—` — repo exists but has not yet adopted any standard.
 - `n/a` — concept of a Standard version doesn't apply to this repo (e.g. `llm-settings` itself).
+
+## Pending adoption — v1.2.0
+
+`v1.2.0` adds eight standards (`EVENTARGS`, `VISIBILITY`, `LOGGING`, `THREAD_SAFETY`, `CANCELLATION`, `COMMENTS`, `ERROR_HANDLING`, `CONFIGURATION`) plus three doc templates (`STANDARD_TEMPLATE.md`, `README_TEMPLATE.md`, `API_SURFACE.md`). Per-repo adoption follows `MIGRATION.md`'s minor-bump procedure — re-run `eng/apply-repo-standard.ps1 -StandardVersion v1.2.0`, regenerate inline copies under `docs/Standards/`, bump the per-repo `CLAUDE.md`, then update the table above.
+
+Per `MIGRATION.md`'s v1.2.0 section: each work repo also runs a one-time export of any open `<Component>/ISSUES.md` / root-level `ISSUES_TRACKER.md` entries to GitHub Issues *before* the rollout PR deletes those files on disk. Per-component `README.md` files are kept (regenerated using the new template).
