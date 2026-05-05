@@ -2,8 +2,7 @@ name: CI
 
 on:
   push:
-    branches:
-      - "**"
+    branches: [main]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -60,9 +59,12 @@ jobs:
       - name: Verify formatting
         run: dotnet format --verify-no-changes
 
+      # No --framework filter: it overrides per-project TFMs and breaks legacy
+      # net10.0-windows projects. The Linux test leg below enforces the
+      # cross-platform contract (Tests are net10.0-only).
       - name: Build (cross-platform leg)
         if: runner.os == 'Linux'
-        run: dotnet build --framework net10.0 --configuration Release --no-restore
+        run: dotnet build --configuration Release --no-restore
 
       - name: Build (full leg, includes net10.0-windows)
         if: runner.os == 'Windows'
