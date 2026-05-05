@@ -20,6 +20,9 @@ The version number is the git tag (`v1.0.0`, `v1.1.0`, …). There is no version
 - `shared/templates/docs/README_TEMPLATE.md` — per-component README template. Stripped of OSI/protocol-Layer content; covers any project/component with required/optional/B-only sections.
 - `shared/templates/archetypes/B/docs/API_SURFACE.md` — library API surface template (archetype B only). Apps don't have a public surface.
 
+### Changed
+- `eng/apply-repo-standard.ps1` now tracks per-file SHA256 of last-written content in `.stem-standard.lock` and refuses to overwrite files that have been modified since the previous rollout (override with `-Force`). Re-running at the same Standard version is a true no-op when the work repo is unchanged. `CHANGELOG.md` is treated as bootstrap-only and never overwritten on re-run. New `-Minimal` switch scopes the iteration to template/standard files that changed between the locked source tag and the target tag (`git diff <source>..<target> -- shared/templates shared/standards`); files containing `{{StandardVersion}}` always re-render. `-DryRun` now prints unified diffs (via `git diff --no-index`) instead of a path list. Output is line-ending-normalized to LF on write so `core.autocrlf=true` checkouts no longer produce spurious diffs on re-run. Closes #27.
+
 ### Fixed
 - `claude/rules/dual-remote.md`: rewrote the mirror-workflow setup. Bitbucket Cloud access keys are read-only, so the previous "enable Has write access" instruction couldn't be followed (the toggle no longer exists in the UI; the first mirror push fails with `fatal: Could not read from remote repository.`). The new flow registers a single shared SSH key (`~/.ssh/bb_mirror_shared`) on the Bitbucket user profile and reuses it across all mirror repos via per-repo `BITBUCKET_SSH_KEY` secrets. Added a Cleanup section for migrating from the old per-repo `bb_mirror_<repo>` keys. The workflow YAML itself is unchanged. Closes #25.
 
