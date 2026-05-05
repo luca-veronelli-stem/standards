@@ -14,6 +14,9 @@ The version number is the git tag (`v1.0.0`, `v1.1.0`, …). There is no version
 
 ## [Unreleased]
 
+### Fixed
+- `claude/rules/dual-remote.md`: rewrote the mirror-workflow setup. Bitbucket Cloud access keys are read-only, so the previous "enable Has write access" instruction couldn't be followed (the toggle no longer exists in the UI; the first mirror push fails with `fatal: Could not read from remote repository.`). The new flow registers a single shared SSH key (`~/.ssh/bb_mirror_shared`) on the Bitbucket user profile and reuses it across all mirror repos via per-repo `BITBUCKET_SSH_KEY` secrets. Added a Cleanup section for migrating from the old per-repo `bb_mirror_<repo>` keys. The workflow YAML itself is unchanged. Closes #25.
+
 ## [1.1.1] - 2026-05-05
 
 ### Fixed

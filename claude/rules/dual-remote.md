@@ -36,24 +36,30 @@ git config --global push.default current
 git push -u github main
 ```
 
-Then add the mirror workflow (see below) and provision the Bitbucket deploy key.
+Then add the mirror workflow (see below) and provision the `BITBUCKET_SSH_KEY` secret on the GitHub repo.
 
 **Why `no_push`:** `main` is mirrored to Bitbucket by the Actions workflow on every push, so direct local pushes to `bitbucket` are unwanted. Git has no native "fetch-only" flag, so the idiomatic guard is to point the push URL at an unresolvable host (`no_push`) — any accidental `git push bitbucket` then fails loudly instead of racing the workflow.
 
-## Mirror workflow setup (one-time per repo)
+## Mirror workflow setup
 
-The workflow uses an SSH **deploy key** scoped only to the Bitbucket mirror — keeps CI's blast radius isolated from Luca's personal SSH key.
+> **Don't use Bitbucket access keys.** Earlier versions of this rule pointed at Repository settings → Security → **Access keys** with "Has write access" enabled. That toggle no longer exists on Bitbucket Cloud — access keys are read-only, and the first mirror push fails with `fatal: Could not read from remote repository.` Use the user-scoped shared key below.
 
-1. **Generate a dedicated keypair** (PowerShell):
+The workflow uses a single shared SSH key registered on the user's **personal Bitbucket profile** — authorizes mirror pushes from any of Luca's repos. A robot/service account would be more isolated but is overkill for a one-developer setup.
+
+### One-time global setup (run once)
+
+1. **Generate the shared keypair** (PowerShell):
    ```powershell
-   ssh-keygen -t ed25519 -C "github-actions-mirror@<repo>" -f $HOME\.ssh\bb_mirror -N '""'
+   ssh-keygen -t ed25519 -C "github-actions-mirror-shared" -f $HOME\.ssh\bb_mirror_shared -N '""'
    ```
 
-2. **Register the public key on Bitbucket**: Repository settings → Security → **Access keys** → Add key. Paste `~/.ssh/bb_mirror.pub`, **enable "Has write access"**, label it `github-actions-mirror`.
+2. **Register the public key on the Bitbucket user profile** at https://bitbucket.org/account/settings/ssh-keys/ → **Add key**. Paste `~/.ssh/bb_mirror_shared.pub`, label it `github-actions-mirror-shared`.
 
-3. **Register the private key as a GitHub Actions secret** named `BITBUCKET_SSH_KEY`. Use bash `cat` (not PowerShell pipe — line-ending conversion mangles the key and produces `error in libcrypto` at runtime):
+### Per-repo setup (run for each new mirror)
+
+3. **Register the private key as a GitHub Actions secret** named `BITBUCKET_SSH_KEY`. Personal GitHub accounts don't expose org-wide secrets, so this is per-repo. Use bash `cat` (not PowerShell pipe — line-ending conversion mangles the key and produces `error in libcrypto` at runtime):
    ```bash
-   cat ~/.ssh/bb_mirror | gh secret set BITBUCKET_SSH_KEY --repo <luca-user>/<repo>
+   cat ~/.ssh/bb_mirror_shared | gh secret set BITBUCKET_SSH_KEY --repo <luca-user>/<repo>
    ```
 
 4. **Drop in the workflow** at `.github/workflows/mirror-bitbucket.yml`:
@@ -90,6 +96,19 @@ The workflow uses an SSH **deploy key** scoped only to the Bitbucket mirror — 
    ```
 
 5. **Verify** after the first push to `main`: `git fetch github && git fetch bitbucket && git rev-parse github/main bitbucket/main` — both SHAs must match.
+
+## Cleanup (migrating from old per-repo keys)
+
+Pre-2026-05-05 setups used a per-repo `bb_mirror_<repo>` keypair plus a per-repo Bitbucket repository access key. Those are obsolete once the shared user-profile key is in place. To migrate an existing mirror repo:
+
+1. **GitHub Actions secret** — re-run step 3 above so `BITBUCKET_SSH_KEY` carries the new `bb_mirror_shared` private key:
+   ```bash
+   cat ~/.ssh/bb_mirror_shared | gh secret set BITBUCKET_SSH_KEY --repo <luca-user>/<repo>
+   ```
+2. **Bitbucket access keys** — Repository → Settings → Security → Access keys: delete any old `github-actions-mirror` entry. They were read-only anyway and never authorized push.
+3. **Local keypairs** — `Remove-Item $HOME\.ssh\bb_mirror_<repo>*` for each obsolete pair.
+
+The workflow YAML (`.github/workflows/mirror-bitbucket.yml`) doesn't change.
 
 ## PR / CI rules
 
