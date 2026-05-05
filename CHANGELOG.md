@@ -14,6 +14,8 @@ The version number is the git tag (`v1.0.0`, `v1.1.0`, …). There is no version
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-05-05
+
 ### Fixed
 - CI template (`shared/templates/.github/workflows/ci.yml`): dropped `--framework net10.0` from the Linux build leg. `--framework` overrides per-project TFMs and broke on repos with legacy WinForms/WPF (`net10.0-windows`) projects. The cross-platform contract is now enforced by the Linux **test** leg plus the MIGRATION tracker; `shared/standards/PORTABILITY.md`'s "Verifying portability" snippet was updated to match. Closes #22.
 - CI template: narrowed `on.push.branches` from `["**"]` to `[main]`, eliminating the double-trigger that fired CI twice on every PR-branch commit (push + pull_request triggers couldn't be deduped via `concurrency.group` because `github.ref` differs per trigger).
