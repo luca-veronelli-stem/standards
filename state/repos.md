@@ -12,7 +12,7 @@ The repo itself also declares the same version in its top-level `CLAUDE.md` (see
 | `stem-communication` | B | — | — | not yet adopted; rename + sub-package split planned |
 | `stem-production-tracker` | A | — | — | not yet adopted |
 | `stem-button-panel-tester` | A | — | — | not yet adopted |
-| `stem-dictionaries` | B | — | — | not yet adopted |
+| `stem-dictionaries-manager` | B | — | — | not yet adopted |
 | `spark-log-analyzer` | A | — | — | not yet adopted |
 | `llm-settings` | C | n/a | n/a | self-referential — defines the standards |
 

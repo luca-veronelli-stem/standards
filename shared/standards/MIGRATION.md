@@ -22,7 +22,7 @@ The v1 standards landed in the *standards-definition* design session. The rollou
 | 4 | `stem-button-panel-tester` | Small, low-risk archetype A. Pilot for the rollout script. |
 | 5 | `spark-log-analyzer` | Analyzer tool, archetype A. |
 | 6 | `stem-production-tracker` | Larger archetype A; benefits from the script being battle-tested. |
-| 7 | `stem-dictionaries` | Archetype A with a class library inside. Last because it's the least typical. |
+| 7 | `stem-dictionaries-manager` | Archetype A with a class library inside. Last because it's the least typical. |
 
 Each phase opens a single PR per repo titled `chore: adopt llm-settings v1.0.0 standards`.
 

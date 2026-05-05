@@ -47,7 +47,7 @@ tests/
 
 Split `<App>.Tests` into per-project test assemblies only when the C# surface is substantial enough to need its own xUnit fixtures (see TESTING).
 
-If the app exposes a class library consumed by other apps (e.g. `stem-dictionaries`'s API), keep that library under `src/` like any other layer (`<App>.Api/`). Don't split it into a sibling library repo unless versioning/release cadence diverges from the GUI's.
+If the app exposes a class library consumed by other apps (e.g. `stem-dictionaries-manager`'s API), keep that library under `src/` like any other layer (`<App>.Api/`). Don't split it into a sibling library repo unless versioning/release cadence diverges from the GUI's.
 
 ### Archetype B — Library
 
