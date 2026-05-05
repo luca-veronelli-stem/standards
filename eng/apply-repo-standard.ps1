@@ -165,7 +165,7 @@ if ($cfg.archetype -eq 'D') {
 }
 
 # --------------------------------------------------------------------------
-# Lockfile (.stem-standard.lock) — tracks per-file SHA256 of last-written
+# Lockfile (.stem-standard.lock) -- tracks per-file SHA256 of last-written
 # post-substitution content. Auto-managed; do not hand-edit.
 # --------------------------------------------------------------------------
 
@@ -176,10 +176,10 @@ if (Test-Path $lockPath) {
 }
 
 # Two distinct signals:
-#   * $repoIsBootstrapped — repo has been through the rollout before, marked
+#   * $repoIsBootstrapped -- repo has been through the rollout before, marked
 #     by the presence of .stem-standard.json. Used for the bootstrap-only
 #     carve-out (CHANGELOG.md and friends).
-#   * $hasLockBaseline    — a per-file hash baseline exists from a prior run
+#   * $hasLockBaseline    -- a per-file hash baseline exists from a prior run
 #     of the hardened script. Used to distinguish "rollout-written" from
 #     "hand-edited" content.
 $repoIsBootstrapped = $null -ne $existing
@@ -395,9 +395,9 @@ function Invoke-TemplateFile {
         #   - If we have a lock baseline, the answer is exact: disk != lockHash means
         #     the user changed it since the last rollout.
         #   - If we don't have a lock but the repo was previously bootstrapped, we
-        #     can't tell what the previous rollout wrote — assume locally-modified
+        #     can't tell what the previous rollout wrote -- assume locally-modified
         #     for safety (the user uses -Force on the first hardened run to seed).
-        #   - If we have neither (true first bootstrap), nothing to protect — write.
+        #   - If we have neither (true first bootstrap), nothing to protect -- write.
         if ($hasLockBaseline) {
             $isLocallyModified = $lockHash -and ($diskHash -ne $lockHash)
         } elseif ($repoIsBootstrapped) {
@@ -452,7 +452,7 @@ $archetypesPath = (Join-Path $templatesRoot 'archetypes').TrimEnd('\','/')
 Get-ChildItem -Path $templatesRoot -Recurse -File | Where-Object {
     -not $_.FullName.StartsWith($archetypesPath, [StringComparison]::OrdinalIgnoreCase)
 } | ForEach-Object {
-    # CLAUDE.md.template and README.md.template carry {{StandardVersion}} —
+    # CLAUDE.md.template and README.md.template carry {{StandardVersion}} --
     # always re-render even in -Minimal mode (the bump itself changes their
     # substituted output).
     $alwaysIterate = $_.Name -in @('CLAUDE.md.template','README.md.template')
