@@ -9,6 +9,17 @@
     from the parameters and from .stem-standard.json (written on first run,
     read on subsequent runs).
 
+    Tracks what the rollout last wrote in .stem-standard.lock (per-file SHA256
+    of post-substitution content). On re-run:
+      - Files unchanged on disk and unchanged in the source between versions
+        are silent no-ops.
+      - Files modified on disk since the last rollout are skipped with a
+        warning (override with -Force).
+      - CHANGELOG.md is never touched after the bootstrap.
+      - -Minimal scopes the iteration to files that changed between the
+        source tag (read from .stem-standard.lock) and the target tag.
+      - -DryRun prints unified diffs of would-be changes (uses git diff).
+
     See shared/standards/MIGRATION.md for the rollout flow.
 
 .PARAMETER RepoPath
@@ -42,7 +53,19 @@
     One-line repo description for README badge line. Used to fill {{Description}}.
 
 .PARAMETER DryRun
-    Print what would change. Don't write anything.
+    Print unified diffs of would-be changes; don't write anything.
+
+.PARAMETER Force
+    Overwrite files that have been locally modified since the last rollout
+    (i.e. their on-disk hash differs from .stem-standard.lock). Without -Force,
+    those files are skipped with a warning.
+
+.PARAMETER Minimal
+    Only iterate over template/standard files that changed between the source
+    tag (read from .stem-standard.lock) and the target tag (-StandardVersion).
+    Falls back to the full set if the lock is missing or git diff fails. Files
+    containing {{StandardVersion}} are always re-rendered regardless, since
+    every bump changes their substituted content.
 
 .EXAMPLE
     # First-time bootstrap
@@ -59,7 +82,8 @@
     # Subsequent bump -- only StandardVersion needs to change.
     & 'C:\Users\LucaV\Source\Repos\llm-settings\eng\apply-repo-standard.ps1' `
         -RepoPath C:\Users\LucaV\Source\Repos\stem-device-manager `
-        -StandardVersion v1.1.0
+        -StandardVersion v1.1.0 `
+        -Minimal
 #>
 
 [CmdletBinding()]
@@ -74,7 +98,9 @@ param(
     [string]$StandardVersion,
     [string]$Author = 'Luca Veronelli',
     [string]$Description,
-    [switch]$DryRun
+    [switch]$DryRun,
+    [switch]$Force,
+    [switch]$Minimal
 )
 
 $ErrorActionPreference = 'Stop'
@@ -139,6 +165,31 @@ if ($cfg.archetype -eq 'D') {
 }
 
 # --------------------------------------------------------------------------
+# Lockfile (.stem-standard.lock) — tracks per-file SHA256 of last-written
+# post-substitution content. Auto-managed; do not hand-edit.
+# --------------------------------------------------------------------------
+
+$lockPath = Join-Path $repoFull '.stem-standard.lock'
+$lock     = $null
+if (Test-Path $lockPath) {
+    $lock = Get-Content $lockPath -Raw | ConvertFrom-Json
+}
+
+# Two distinct signals:
+#   * $repoIsBootstrapped — repo has been through the rollout before, marked
+#     by the presence of .stem-standard.json. Used for the bootstrap-only
+#     carve-out (CHANGELOG.md and friends).
+#   * $hasLockBaseline    — a per-file hash baseline exists from a prior run
+#     of the hardened script. Used to distinguish "rollout-written" from
+#     "hand-edited" content.
+$repoIsBootstrapped = $null -ne $existing
+$hasLockBaseline    = $null -ne $lock
+
+# Files in the work repo that are written only on bootstrap, never on re-run.
+# CHANGELOG.md grows over time and must not be clobbered by template churn.
+$bootstrapOnlyFiles = @('CHANGELOG.md')
+
+# --------------------------------------------------------------------------
 # Substitution
 # --------------------------------------------------------------------------
 
@@ -165,18 +216,119 @@ function Expand-Placeholder {
     return $Text
 }
 
+# Normalize line endings to LF before hashing, so a target file rewritten as
+# CRLF by core.autocrlf=true still hashes equal to its LF source.
+function ConvertTo-LfText {
+    param([string]$Text)
+    return ($Text -replace "`r`n", "`n")
+}
+
+function Get-Sha256OfText {
+    param([string]$Text)
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes((ConvertTo-LfText $Text))
+    $sha   = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $hash = $sha.ComputeHash($bytes)
+        return -join ($hash | ForEach-Object { $_.ToString('x2') })
+    } finally {
+        $sha.Dispose()
+    }
+}
+
+function Get-Sha256OfFile {
+    param([string]$Path)
+    if (-not (Test-Path $Path)) { return $null }
+    $text = [System.IO.File]::ReadAllText($Path)
+    return Get-Sha256OfText -Text $text
+}
+
+# Unified diff via git diff --no-index between two temp files.
+function Show-UnifiedDiff {
+    param(
+        [string]$OldText,
+        [string]$NewText,
+        [string]$DisplayPath
+    )
+    $tmpOld = [System.IO.Path]::GetTempFileName()
+    $tmpNew = [System.IO.Path]::GetTempFileName()
+    try {
+        [System.IO.File]::WriteAllText($tmpOld, (ConvertTo-LfText $OldText), $utf8NoBom)
+        [System.IO.File]::WriteAllText($tmpNew, (ConvertTo-LfText $NewText), $utf8NoBom)
+        $diff = & git diff --no-index --no-color --no-prefix -U3 $tmpOld $tmpNew 2>$null
+        if ($LASTEXITCODE -gt 1) {
+            Write-Host "    (git diff unavailable; printing raw new content)" -ForegroundColor DarkYellow
+            return
+        }
+        foreach ($line in $diff) {
+            $rendered = $line `
+                -replace [regex]::Escape($tmpOld), "a/$DisplayPath" `
+                -replace [regex]::Escape($tmpNew), "b/$DisplayPath"
+            Write-Host "    $rendered"
+        }
+    } finally {
+        Remove-Item $tmpOld, $tmpNew -ErrorAction SilentlyContinue
+    }
+}
+
 # --------------------------------------------------------------------------
-# Single-file processor: substitute + copy + record in summary
+# Compute the -Minimal file set: files that changed between the locked
+# source tag and the target tag in the llm-settings repo.
 # --------------------------------------------------------------------------
 
-$summary = New-Object System.Collections.Generic.List[string]
+$minimalAllowedSourceRels = $null
+if ($Minimal) {
+    if (-not $lock) {
+        Write-Host "[-Minimal] no lockfile -- falling back to full iteration." -ForegroundColor DarkYellow
+    } elseif ($lock.standardVersion -eq $cfg.standardVersion) {
+        Write-Host "[-Minimal] target version matches locked version ($($cfg.standardVersion)) -- empty diff set." -ForegroundColor DarkYellow
+        $minimalAllowedSourceRels = @{}
+    } else {
+        Push-Location $llmSettingsRoot
+        try {
+            $diffOutput = & git diff --name-only "$($lock.standardVersion)..$($cfg.standardVersion)" -- shared/templates shared/standards 2>$null
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "[-Minimal] git diff failed -- falling back to full iteration." -ForegroundColor DarkYellow
+            } else {
+                $minimalAllowedSourceRels = @{}
+                foreach ($p in $diffOutput) {
+                    if ([string]::IsNullOrWhiteSpace($p)) { continue }
+                    # Normalize to forward slashes; key by full path under llm-settings root.
+                    $minimalAllowedSourceRels[($p -replace '\\','/')] = $true
+                }
+                Write-Host "[-Minimal] $($minimalAllowedSourceRels.Count) source file(s) changed between $($lock.standardVersion) and $($cfg.standardVersion)." -ForegroundColor Cyan
+            }
+        } finally {
+            Pop-Location
+        }
+    }
+}
 
-function Copy-TemplateFile {
+function Test-MinimalAllowed {
+    param([string]$AbsoluteSourcePath)
+    if ($null -eq $minimalAllowedSourceRels) { return $true }   # not in -Minimal mode
+    $rel = $AbsoluteSourcePath.Substring($llmSettingsRoot.Length).TrimStart('\','/').Replace('\','/')
+    return $minimalAllowedSourceRels.ContainsKey($rel)
+}
+
+# --------------------------------------------------------------------------
+# Single-file processor
+# --------------------------------------------------------------------------
+
+# Outcome counters / lists for the final summary.
+$plannedWrites    = New-Object System.Collections.Generic.List[string]
+$skippedNoChange  = New-Object System.Collections.Generic.List[string]
+$skippedModified  = New-Object System.Collections.Generic.List[string]
+$skippedBootstrap = New-Object System.Collections.Generic.List[string]
+$skippedMinimal   = New-Object System.Collections.Generic.List[string]
+$writtenLockHashes = @{}   # destRelative (forward-slash) -> sha256
+
+function Invoke-TemplateFile {
     param(
         [string]$SourceFile,
         [string]$SourceRoot,
         [string]$DestRoot,
-        [string]$Tag
+        [string]$Tag,
+        [bool]  $AlwaysIterate = $false   # bypasses -Minimal scoping (for version-stamped files)
     )
 
     $relative = $SourceFile.Substring($SourceRoot.Length).TrimStart('\','/')
@@ -186,28 +338,109 @@ function Copy-TemplateFile {
     } else {
         $relative
     }
+    $destRelativeFwd = $destRelative.Replace('\','/')
 
     $destFull = Join-Path $DestRoot $destRelative
     $destDir  = Split-Path $destFull -Parent
     $ext      = [System.IO.Path]::GetExtension($SourceFile).ToLowerInvariant()
+    $isBinary = $noSubstituteExtensions -contains $ext
 
-    if ($noSubstituteExtensions -contains $ext) {
-        if (-not $DryRun) {
-            if (-not (Test-Path $destDir)) { New-Item -ItemType Directory -Path $destDir -Force | Out-Null }
-            Copy-Item -Path $SourceFile -Destination $destFull -Force
-        }
-        $summary.Add("[$Tag] $destRelative (binary)")
+    # -- Policy: bootstrap-only files are never overwritten on re-run.
+    if ($repoIsBootstrapped -and $bootstrapOnlyFiles -contains $destRelativeFwd) {
+        $skippedBootstrap.Add("[$Tag] $destRelativeFwd")
         return
     }
 
-    $content    = [System.IO.File]::ReadAllText($SourceFile)
-    $newContent = Expand-Placeholder -Text $content
-
-    if (-not $DryRun) {
-        if (-not (Test-Path $destDir)) { New-Item -ItemType Directory -Path $destDir -Force | Out-Null }
-        [System.IO.File]::WriteAllText($destFull, $newContent, $utf8NoBom)
+    # -- Policy: -Minimal narrows iteration to source files that changed.
+    if (-not $AlwaysIterate -and -not (Test-MinimalAllowed -AbsoluteSourcePath $SourceFile)) {
+        $skippedMinimal.Add("[$Tag] $destRelativeFwd")
+        return
     }
-    $summary.Add("[$Tag] $destRelative")
+
+    # -- Render new content (or read raw bytes for binary).
+    if ($isBinary) {
+        $newBytes = [System.IO.File]::ReadAllBytes($SourceFile)
+        $newText  = $null
+        $newHash  = (Get-FileHash -InputStream ([System.IO.MemoryStream]::new($newBytes)) -Algorithm SHA256).Hash.ToLower()
+    } else {
+        $rawText  = [System.IO.File]::ReadAllText($SourceFile)
+        $newText  = Expand-Placeholder -Text $rawText
+        $newHash  = Get-Sha256OfText -Text $newText
+    }
+
+    # -- Compare to existing target.
+    $targetExists = Test-Path $destFull
+    if ($targetExists) {
+        $diskHash = if ($isBinary) {
+            (Get-FileHash -Path $destFull -Algorithm SHA256).Hash.ToLower()
+        } else {
+            Get-Sha256OfFile -Path $destFull
+        }
+
+        if ($diskHash -eq $newHash) {
+            # Already up to date. Record the hash for the lock and move on.
+            $writtenLockHashes[$destRelativeFwd] = $newHash
+            $skippedNoChange.Add("[$Tag] $destRelativeFwd")
+            return
+        }
+
+        # Disk differs from rendered template. Was it the rollout's previous
+        # write or a local edit?
+        $lockHash = $null
+        if ($lock -and $lock.files -and ($lock.files.PSObject.Properties.Name -contains $destRelativeFwd)) {
+            $lockHash = $lock.files.$destRelativeFwd
+        }
+
+        # Decide whether the on-disk content was hand-edited:
+        #   - If we have a lock baseline, the answer is exact: disk != lockHash means
+        #     the user changed it since the last rollout.
+        #   - If we don't have a lock but the repo was previously bootstrapped, we
+        #     can't tell what the previous rollout wrote — assume locally-modified
+        #     for safety (the user uses -Force on the first hardened run to seed).
+        #   - If we have neither (true first bootstrap), nothing to protect — write.
+        if ($hasLockBaseline) {
+            $isLocallyModified = $lockHash -and ($diskHash -ne $lockHash)
+        } elseif ($repoIsBootstrapped) {
+            $isLocallyModified = $true
+        } else {
+            $isLocallyModified = $false
+        }
+
+        if ($isLocallyModified -and -not $Force) {
+            $skippedModified.Add("[$Tag] $destRelativeFwd  (local edit; pass -Force to overwrite)")
+            # Preserve the existing lock hash if any, so future runs still
+            # see this as locally-modified until either -Force or a manual
+            # reconciliation.
+            if ($lockHash) { $writtenLockHashes[$destRelativeFwd] = $lockHash }
+            return
+        }
+    }
+
+    # -- We will write. Plan the write (or print diff for -DryRun).
+    $plannedWrites.Add("[$Tag] $destRelativeFwd")
+
+    if ($DryRun) {
+        $oldText = if ($targetExists -and -not $isBinary) { [System.IO.File]::ReadAllText($destFull) } else { '' }
+        if ($isBinary) {
+            Write-Host "  -- $destRelativeFwd (binary, $($newBytes.Length) bytes)" -ForegroundColor DarkYellow
+        } else {
+            Write-Host "  -- $destRelativeFwd" -ForegroundColor DarkYellow
+            Show-UnifiedDiff -OldText $oldText -NewText $newText -DisplayPath $destRelativeFwd
+        }
+        # Don't update lock during dry run.
+        return
+    }
+
+    # -- Real write.
+    if (-not (Test-Path $destDir)) { New-Item -ItemType Directory -Path $destDir -Force | Out-Null }
+    if ($isBinary) {
+        [System.IO.File]::WriteAllBytes($destFull, $newBytes)
+    } else {
+        # Always write LF-normalized to keep the rollout output deterministic.
+        $lfText = ConvertTo-LfText $newText
+        [System.IO.File]::WriteAllText($destFull, $lfText, $utf8NoBom)
+    }
+    $writtenLockHashes[$destRelativeFwd] = $newHash
 }
 
 # --------------------------------------------------------------------------
@@ -219,7 +452,11 @@ $archetypesPath = (Join-Path $templatesRoot 'archetypes').TrimEnd('\','/')
 Get-ChildItem -Path $templatesRoot -Recurse -File | Where-Object {
     -not $_.FullName.StartsWith($archetypesPath, [StringComparison]::OrdinalIgnoreCase)
 } | ForEach-Object {
-    Copy-TemplateFile -SourceFile $_.FullName -SourceRoot $templatesRoot -DestRoot $repoFull -Tag 'common'
+    # CLAUDE.md.template and README.md.template carry {{StandardVersion}} —
+    # always re-render even in -Minimal mode (the bump itself changes their
+    # substituted output).
+    $alwaysIterate = $_.Name -in @('CLAUDE.md.template','README.md.template')
+    Invoke-TemplateFile -SourceFile $_.FullName -SourceRoot $templatesRoot -DestRoot $repoFull -Tag 'common' -AlwaysIterate:$alwaysIterate
 }
 
 # --------------------------------------------------------------------------
@@ -231,7 +468,7 @@ if ($cfg.archetype -in @('A','B')) {
     if (Test-Path $overlayRoot) {
         Write-Host "Applying archetype $($cfg.archetype) overlay" -ForegroundColor Cyan
         Get-ChildItem -Path $overlayRoot -Recurse -File | ForEach-Object {
-            Copy-TemplateFile -SourceFile $_.FullName -SourceRoot $overlayRoot -DestRoot $repoFull -Tag "overlay-$($cfg.archetype)"
+            Invoke-TemplateFile -SourceFile $_.FullName -SourceRoot $overlayRoot -DestRoot $repoFull -Tag "overlay-$($cfg.archetype)"
         }
     }
 }
@@ -246,14 +483,11 @@ if (-not $DryRun -and -not (Test-Path $standardsTarget)) {
     New-Item -ItemType Directory -Path $standardsTarget -Force | Out-Null
 }
 Get-ChildItem -Path $standardsRoot -Filter *.md -File | ForEach-Object {
-    $destFull = Join-Path $standardsTarget $_.Name
-    if (-not $DryRun) {
-        Copy-Item -Path $_.FullName -Destination $destFull -Force
-    }
-    $summary.Add("[standards] docs/Standards/$($_.Name)")
+    Invoke-TemplateFile -SourceFile $_.FullName -SourceRoot $standardsRoot -DestRoot $standardsTarget -Tag 'standards'
 }
 
-# Generate docs/Standards/README.md index.
+# Generate docs/Standards/README.md index. Always rendered (carries the
+# version), so bypass -Minimal.
 $standardPurpose = [ordered]@{
     'REPO_STRUCTURE'     = 'Root layout, archetype trees, naming rules.'
     'LANGUAGE'           = 'F# default; layer-default table; deviation policy.'
@@ -263,6 +497,14 @@ $standardPurpose = [ordered]@{
     'TESTING'            = 'xUnit + FsCheck + Avalonia.Headless; single F# tests project default.'
     'CI'                 = 'GitHub Actions: ci.yml, mirror-bitbucket.yml, release.yml; matrix legs.'
     'MIGRATION'          = 'Per-repo adoption phases; major/minor/patch bump procedures.'
+    'EVENTARGS'          = 'Two valid event-payload shapes; banned primitives.'
+    'VISIBILITY'         = 'Archetype-aware default-internal/default-public; seal-by-default.'
+    'LOGGING'            = 'ILogger<T>; structured-only; Console.WriteLine banned.'
+    'THREAD_SAFETY'      = 'Decision order; .NET 10 Lock; sync-over-async banned.'
+    'CANCELLATION'       = 'CancellationToken propagation; linked-CTS timeout; OCE handling.'
+    'COMMENTS'           = 'XML doc coverage by visibility; English by default; <inheritdoc/>.'
+    'ERROR_HANDLING'     = 'Try-pattern / Result type / exception decision tree.'
+    'CONFIGURATION'      = 'Constants -> Configuration -> Service pattern; library + app delivery.'
 }
 
 $indexLines = New-Object System.Collections.Generic.List[string]
@@ -273,28 +515,76 @@ $indexLines.Add('')
 $indexLines.Add('| Standard | Purpose |')
 $indexLines.Add('| --- | --- |')
 foreach ($kvp in $standardPurpose.GetEnumerator()) {
-    $indexLines.Add("| [$($kvp.Key).md](./$($kvp.Key).md) | $($kvp.Value) |")
+    $stdFile = Join-Path $standardsRoot ("$($kvp.Key).md")
+    if (Test-Path $stdFile) {
+        $indexLines.Add("| [$($kvp.Key).md](./$($kvp.Key).md) | $($kvp.Value) |")
+    }
 }
 $indexLines.Add('')
 $indexLines.Add('## Bumping the standard version')
 $indexLines.Add('')
 $indexLines.Add('Re-run the rollout from `<llm-settings>/eng/apply-repo-standard.ps1` with `-StandardVersion vX.Y.Z`. The script reads `.stem-standard.json` at the repo root, so only the new tag needs to be passed.')
 
-if (-not $DryRun) {
-    [System.IO.File]::WriteAllText((Join-Path $standardsTarget 'README.md'), ($indexLines -join "`n") + "`n", $utf8NoBom)
+$indexText = ($indexLines -join "`n") + "`n"
+$indexDestRel = 'docs/Standards/README.md'
+$indexDestFull = Join-Path $repoFull $indexDestRel
+$indexNewHash = Get-Sha256OfText -Text $indexText
+$indexExists  = Test-Path $indexDestFull
+$indexDiskHash = if ($indexExists) { Get-Sha256OfFile -Path $indexDestFull } else { $null }
+
+if ($indexDiskHash -eq $indexNewHash) {
+    $writtenLockHashes[$indexDestRel] = $indexNewHash
+    $skippedNoChange.Add("[standards] $indexDestRel")
+} else {
+    $indexLockHash = $null
+    if ($lock -and $lock.files -and ($lock.files.PSObject.Properties.Name -contains $indexDestRel)) {
+        $indexLockHash = $lock.files.$indexDestRel
+    }
+    $indexLocallyModified = if ($hasLockBaseline) {
+        $indexExists -and $indexLockHash -and ($indexDiskHash -ne $indexLockHash)
+    } elseif ($repoIsBootstrapped) {
+        $indexExists
+    } else {
+        $false
+    }
+    if ($indexLocallyModified -and -not $Force) {
+        $skippedModified.Add("[standards] $indexDestRel  (local edit; pass -Force to overwrite)")
+        if ($indexLockHash) { $writtenLockHashes[$indexDestRel] = $indexLockHash }
+    } else {
+        $plannedWrites.Add("[standards] $indexDestRel (regenerated)")
+        if ($DryRun) {
+            $oldIndex = if ($indexExists) { [System.IO.File]::ReadAllText($indexDestFull) } else { '' }
+            Write-Host "  -- $indexDestRel" -ForegroundColor DarkYellow
+            Show-UnifiedDiff -OldText $oldIndex -NewText $indexText -DisplayPath $indexDestRel
+        } else {
+            [System.IO.File]::WriteAllText($indexDestFull, $indexText, $utf8NoBom)
+            $writtenLockHashes[$indexDestRel] = $indexNewHash
+        }
+    }
 }
-$summary.Add('[standards] docs/Standards/README.md (regenerated)')
 
 # --------------------------------------------------------------------------
-# 4) Persist .stem-standard.json
+# 4) Persist .stem-standard.json (config) and .stem-standard.lock (hashes)
 # --------------------------------------------------------------------------
 
 if (-not $DryRun) {
     $cfg | ConvertTo-Json -Depth 4 | ForEach-Object {
         [System.IO.File]::WriteAllText($configPath, $_, $utf8NoBom)
     }
+
+    # Sort lock entries for stable diffs across runs.
+    $sortedFiles = [ordered]@{}
+    foreach ($key in ($writtenLockHashes.Keys | Sort-Object)) {
+        $sortedFiles[$key] = $writtenLockHashes[$key]
+    }
+    $newLock = [ordered]@{
+        version         = 1
+        writtenAt       = (Get-Date).ToUniversalTime().ToString('o')
+        standardVersion = $cfg.standardVersion
+        files           = $sortedFiles
+    }
+    [System.IO.File]::WriteAllText($lockPath, ($newLock | ConvertTo-Json -Depth 4), $utf8NoBom)
 }
-$summary.Add('.stem-standard.json (written/updated)')
 
 # --------------------------------------------------------------------------
 # 5) Summary
@@ -302,7 +592,27 @@ $summary.Add('.stem-standard.json (written/updated)')
 
 Write-Host ''
 Write-Host '----- Summary -----' -ForegroundColor Yellow
-foreach ($line in $summary) { Write-Host $line }
+if ($plannedWrites.Count -gt 0) {
+    Write-Host "Will write ($($plannedWrites.Count)):" -ForegroundColor Green
+    foreach ($line in $plannedWrites)    { Write-Host "  $line" }
+}
+if ($skippedNoChange.Count -gt 0) {
+    Write-Host "Already up to date ($($skippedNoChange.Count)):" -ForegroundColor DarkGray
+    foreach ($line in $skippedNoChange)  { Write-Host "  $line" -ForegroundColor DarkGray }
+}
+if ($skippedMinimal.Count -gt 0) {
+    Write-Host "Skipped (-Minimal scope): $($skippedMinimal.Count) file(s)" -ForegroundColor DarkGray
+}
+if ($skippedBootstrap.Count -gt 0) {
+    Write-Host "Skipped (bootstrap-only):" -ForegroundColor DarkGray
+    foreach ($line in $skippedBootstrap) { Write-Host "  $line" -ForegroundColor DarkGray }
+}
+if ($skippedModified.Count -gt 0) {
+    Write-Host "Skipped (local edits) ($($skippedModified.Count)):" -ForegroundColor Yellow
+    foreach ($line in $skippedModified)  { Write-Host "  $line" -ForegroundColor Yellow }
+    Write-Host '  Re-run with -Force to overwrite, or hand-reconcile each file.' -ForegroundColor Yellow
+}
+
 Write-Host ''
 Write-Host "Standard version stamped: $($cfg.standardVersion)" -ForegroundColor Green
 Write-Host "Archetype:                $($cfg.archetype)"
@@ -311,7 +621,7 @@ if ($DryRun) {
     Write-Host '(Dry run -- no files were written.)' -ForegroundColor Yellow
 } else {
     Write-Host 'Next steps:'
-    Write-Host "  1. Review the diff: cd $repoFull; git status; git diff"
+    Write-Host "  1. Review: cd $repoFull; git status; git diff"
     Write-Host '  2. Update <llm-settings>/state/repos.md to record the new version.'
     Write-Host '  3. Commit on a feature branch and open a PR.'
 }
