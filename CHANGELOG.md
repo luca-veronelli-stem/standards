@@ -6,13 +6,21 @@ Each STEM repo declares the **Standard version** it follows in its top-level `CL
 
 ## Versioning rules for `llm-settings`
 
-- **Major** — breaking change to a standard or template (existing repos must migrate or pin an older version).
-- **Minor** — new standard, new template, new skill, or non-breaking change to an existing one.
-- **Patch** — typos, clarifications, internal refactors with no behavioural impact.
+- **Major** — breaking change to a standard, template, rule, skill, or installer that forces adopters to migrate or pin an older version.
+- **Minor** — new standard, new template, new rule, new skill, new installer capability, or a non-breaking change to an existing one.
+- **Patch** — bug fixes that restore intended behaviour, plus typos, clarifications, and internal refactors. No change to documented contracts.
 
 The version number is the git tag (`v1.0.0`, `v1.1.0`, …). There is no version field inside any single file — `git describe` is the source of truth.
 
 ## [Unreleased]
+
+## [1.0.1] - 2026-05-05
+
+### Fixed
+- `install.ps1` now falls back to `cmd /c mklink` when `New-Item -ItemType SymbolicLink` rejects the call due to a missing `SeCreateSymbolicLinkPrivilege`. Unblocks installation on STEM domain-joined machines, where group policy strips the privilege from standard accounts even with Developer Mode enabled.
+
+### Changed
+- Tightened the patch-bump rule in this changelog: bug fixes that restore intended behaviour are now explicitly patch-level. Previous wording ("no behavioural impact") excluded them by accident.
 
 ## [1.0.0] - 2026-05-04
 
