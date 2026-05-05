@@ -14,6 +14,9 @@ The version number is the git tag (`v1.0.0`, `v1.1.0`, …). There is no version
 
 ## [Unreleased]
 
+### Added
+- `install.ps1` configures `gpg.program` and `core.sshCommand` to point at the Windows-native binaries (`C:\Program Files\GnuPG\bin\gpg.exe`, `C:\Windows\System32\OpenSSH\ssh.exe`) when present, so signed commits and SSH push work out of the box on a fresh STEM machine without needing to override the `Git\usr\bin\` bundled tools by hand. Idempotent and respects user-set non-bundled values. Closes #13.
+
 ### Changed
 - Applied the conventional-commits label set (`feat`, `fix`, `chore`, `docs`, `refactor`, `test`, `ci`) to this repo, matching the vocabulary the `new-repository` skill installs on STEM work repos. Existing issues #13 and PRs #11 / #12 were retroactively labelled. Closes #14.
 

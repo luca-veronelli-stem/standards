@@ -148,6 +148,48 @@ if (-not $SkipPrereqs) {
     Write-Host ""
 }
 
+# ---------- 2.5 Git tooling overrides ----------
+# Git for Windows ships its own gpg.exe and ssh.exe under Git\usr\bin\ that
+# can't reach the Windows-native ssh-agent or the Gpg4win keyring. Point git
+# at the system binaries when present so signed commits and SSH push work
+# out of the box on a fresh STEM machine.
+
+function Set-GitToolingOverride {
+    param(
+        [Parameter(Mandatory)] [string]$Key,
+        [Parameter(Mandatory)] [string]$Target
+    )
+    if (-not (Test-Path $Target)) {
+        Write-Host "  $Key`: target not found at $Target, skipping"
+        return
+    }
+    $current = (& git config --global --get $Key 2>$null) | Select-Object -First 1
+    if ($current) {
+        $normalizedCurrent = ($current -replace '\\','/').Trim()
+        $normalizedTarget  = ($Target  -replace '\\','/').Trim()
+        if ($normalizedCurrent -ieq $normalizedTarget) {
+            Write-Host "  $Key`: already set to $current"
+            return
+        }
+        $isBundled = $normalizedCurrent -imatch '/Git/usr/bin/'
+        if (-not $isBundled) {
+            Write-Warning "  $Key`: already set to non-bundled '$current'. Leaving as-is."
+            return
+        }
+        Write-Host "  $Key`: replacing bundled '$current' with '$Target'"
+    } else {
+        Write-Host "  $Key`: setting to $Target"
+    }
+    & git config --global $Key $Target
+}
+
+if (Test-Command 'git') {
+    Write-Host "--- Configuring git tooling overrides ---" -ForegroundColor Yellow
+    Set-GitToolingOverride -Key 'gpg.program'     -Target 'C:\Program Files\GnuPG\bin\gpg.exe'
+    Set-GitToolingOverride -Key 'core.sshCommand' -Target 'C:\Windows\System32\OpenSSH\ssh.exe'
+    Write-Host ""
+}
+
 # ---------- 3. Create symlinks ----------
 
 function New-Link {
