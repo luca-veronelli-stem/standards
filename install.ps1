@@ -170,7 +170,23 @@ function New-Link {
             Write-Host "  backup: $Target -> $bak" -ForegroundColor DarkGray
         }
     }
-    $null = New-Item -ItemType SymbolicLink -Path $Target -Target $Source -Force
+    # Try New-Item first. PS 5.1's SymbolicLink provider requires
+    # SeCreateSymbolicLinkPrivilege on the calling token. On STEM domain-joined
+    # machines that privilege is suppressed by GPO even with Developer Mode on,
+    # so we fall back to `cmd /c mklink`, which calls CreateSymbolicLinkW with
+    # SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE and works under Dev Mode
+    # without the privilege.
+    try {
+        $null = New-Item -ItemType SymbolicLink -Path $Target -Target $Source -Force -ErrorAction Stop
+    } catch {
+        $isDir = (Get-Item $Source -Force).PSIsContainer
+        $flag  = if ($isDir) { '/D ' } else { '' }
+        $cmd   = "mklink $flag`"$Target`" `"$Source`""
+        $output = & cmd.exe /c $cmd 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            throw "mklink failed for '$Target' -> '$Source': $output"
+        }
+    }
     Write-Host "  linked: $Target -> $Source"
 }
 
