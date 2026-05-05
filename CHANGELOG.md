@@ -19,6 +19,7 @@ The version number is the git tag (`v1.0.0`, `v1.1.0`, …). There is no version
 
 ### Changed
 - Applied the conventional-commits label set (`feat`, `fix`, `chore`, `docs`, `refactor`, `test`, `ci`) to this repo, matching the vocabulary the `new-repository` skill installs on STEM work repos. Existing issues #13 and PRs #11 / #12 were retroactively labelled. Closes #14.
+- Renamed every reference to the `stem-dictionaries` repo to its actual GitHub name `stem-dictionaries-manager` across `state/repos.md`, `shared/standards/MIGRATION.md`, and `shared/standards/REPO_STRUCTURE.md`. Closes #16.
 
 ## [1.0.1] - 2026-05-05
 
