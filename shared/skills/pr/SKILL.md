@@ -69,6 +69,47 @@ For each review comment:
 - Use rebase merge: `gh pr merge <PR> --rebase --delete-branch`. Only squash when the series is messy.
 - Never merge on a red CI.
 
+## Stacked PRs — base-branch deletion trap
+
+When a stack of PRs targets each other (`A ← B ← C`, where `B`'s base is `A`'s branch), merging the foundation with `--delete-branch` will **auto-close every dependent PR**. GitHub closes the dependents because their base ref no longer exists, and **closed PRs whose base is gone cannot be reopened** — review history, comments, and approvals are lost. Recreating against `main` works but starts the review from scratch.
+
+### Pre-merge defence
+
+Before merging any PR in a stack, retarget every later PR onto `main` (or onto the next surviving branch in the stack). Then merge bottom-up. Each rebase-merge after the first looks like a no-op cherry-pick because the commits are already on `main`.
+
+```powershell
+# For each dependent PR in the stack, before touching the foundation:
+gh pr edit <PR> --base main
+```
+
+Then merge the foundation:
+
+```powershell
+gh pr merge <foundation-PR> --rebase --delete-branch
+```
+
+### Recovery
+
+If a dependent PR is already closed and the base branch is gone, reopen will fail. The only path forward is recreate against `main`:
+
+```powershell
+gh pr create --base main --title "<original title>" --body "<original body>`n`nReplaces #<old-PR>."
+```
+
+Cross-link the old PR in the body for context. Comments and approvals on the old PR are not recoverable.
+
+### Local cleanup after each rebase-merge
+
+Feature branches still parented on the pre-merge SHA need to be rebased onto the new `main`:
+
+```powershell
+git fetch github
+git rebase github/main
+git push --force-with-lease
+```
+
+The cherry-pick of the just-merged commit is auto-skipped — git detects the patch is already in the upstream history.
+
 ## PR body template
 
 ```markdown
