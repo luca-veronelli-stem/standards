@@ -167,6 +167,7 @@ GUI tests run headless via `Avalonia.Headless.XUnit` and `[<AvaloniaFact>]`.
 - **"The type or namespace 'Windows' could not be found"** — code that needs WinForms/WPF/Win32 is in a `net10.0` project. Either move it to a `net10.0-windows` project, gate with `#if WINDOWS` in a multi-targeted project, or refactor through a port (see PORTABILITY).
 - **"dotnet ef is not recognized"** — `dotnet tool install --global dotnet-ef`.
 - **"NU1301: package source unreachable"** — Azure Artifacts PAT expired; refresh it and re-set `AZURE_ARTIFACTS_PAT`.
-- **`dotnet format --verify-no-changes` fails** — run `dotnet format` to fix, commit the result. Husky.NET pre-commit catches this; CI is the backstop.
+- **`dotnet format --verify-no-changes` fails** — run `dotnet format` to fix, commit the result. Husky.NET pre-commit catches this locally.
+- **CI formatting gate is whitespace-only** — CI runs `dotnet format whitespace --verify-no-changes --no-restore`, not the full `dotnet format`. Workaround for Roslyn `MSBuildWorkspace` cross-language resolution gap on GitHub-hosted runners. Analyzer/style enforcement still happens via `TreatWarningsAsErrors` at build time. See the CI standard for the rationale.
 - **Test output is missing** — `dotnet test -v normal` for more verbose output; `dotnet test --logger "console;verbosity=detailed"` for per-test output.
 - **`PackageVersion` warning during build** — the package is referenced by name in a project but not declared in `Directory.Packages.props`. Add the `<PackageVersion>` entry there.
