@@ -14,6 +14,12 @@ The version number is the git tag (`v1.0.0`, `v1.1.0`, …). There is no version
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-05-06
+
+### Fixed
+- `shared/templates/README.md.template` and `shared/templates/CLAUDE.md.template`: render-visible placeholder hints (`(1–3 paragraphs: ...)` and similar) shipped unfilled into adopted repos because they look like prose to a casual reader. Replaced with explicit `*[TODO — ...]*` markers backed by HTML-comment guidance, matching the convention already used in `docs/README_TEMPLATE.md`, `docs/STANDARD_TEMPLATE.md`, and `archetypes/B/docs/API_SURFACE.md`. The `PULL_REQUEST_TEMPLATE.md` `Summary` placeholder is left as-is — it's overwritten on every PR creation.
+- `state/repos.md`: retitled the "Pending adoption" section from `v1.2.0` to `v1.2.1` so repos picking up the standards bundle adopt the patched templates directly.
+
 ## [1.2.0] - 2026-05-05
 
 ### Added
