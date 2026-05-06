@@ -15,7 +15,7 @@
         are silent no-ops.
       - Files modified on disk since the last rollout are skipped with a
         warning (override with -Force).
-      - CHANGELOG.md is never touched after the bootstrap.
+      - CHANGELOG.md and LICENSE are never touched after the bootstrap.
       - -Minimal scopes the iteration to files that changed between the
         source tag (read from .stem-standard.lock) and the target tag.
       - -DryRun prints unified diffs of would-be changes (uses git diff).
@@ -187,7 +187,9 @@ $hasLockBaseline    = $null -ne $lock
 
 # Files in the work repo that are written only on bootstrap, never on re-run.
 # CHANGELOG.md grows over time and must not be clobbered by template churn.
-$bootstrapOnlyFiles = @('CHANGELOG.md')
+# LICENSE is per-repo customisation (project name, year) that the seed
+# template provides at bootstrap; subsequent edits stay with the repo.
+$bootstrapOnlyFiles = @('CHANGELOG.md', 'LICENSE')
 
 # --------------------------------------------------------------------------
 # Substitution

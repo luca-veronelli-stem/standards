@@ -14,6 +14,9 @@ The version number is the git tag (`v1.0.0`, `v1.1.0`, …). There is no version
 
 ## [Unreleased]
 
+### Added
+- `shared/templates/LICENSE.template` — STEM proprietary-EULA template parameterized on `{{App}}`, `{{Year}}`, `{{Author}}`. Wired into `apply-repo-standard.ps1` as a **bootstrap-only** file (alongside `CHANGELOG.md`), so first-time rollouts seed it but re-runs never overwrite per-repo customisations. Lifted from the `stem-communication` LICENSE body, which had been copy-pasted (with a "DUMMY" disclaimer header) into every other STEM repo. The disclaimer is dropped here; the body is unchanged.
+
 ## [1.2.1] - 2026-05-06
 
 ### Fixed
