@@ -38,8 +38,8 @@ When a repo is bumped to a new Standard version:
 - `—` — repo exists but has not yet adopted any standard.
 - `n/a` — concept of a Standard version doesn't apply to this repo (e.g. `llm-settings` itself).
 
-## Pending adoption — v1.2.1
+## Pending adoption — v1.3.0
 
-`v1.2.0` adds eight standards (`EVENTARGS`, `VISIBILITY`, `LOGGING`, `THREAD_SAFETY`, `CANCELLATION`, `COMMENTS`, `ERROR_HANDLING`, `CONFIGURATION`) plus three doc templates (`STANDARD_TEMPLATE.md`, `README_TEMPLATE.md`, `API_SURFACE.md`); `v1.2.1` patches placeholder hints in `README.md.template` and `CLAUDE.md.template` so unfilled sections are obvious on review. Per-repo adoption follows `MIGRATION.md`'s minor/patch-bump procedure — re-run `eng/apply-repo-standard.ps1 -StandardVersion v1.2.1`, regenerate inline copies under `docs/Standards/`, bump the per-repo `CLAUDE.md`, then update the table above.
+`v1.3.0` ships a new `LICENSE.template` (bootstrap-only) and switches the CI formatting gate to `dotnet format whitespace --verify-no-changes --no-restore`, plus skill/standard documentation additions. Per-repo adoption follows `MIGRATION.md`'s minor-bump procedure — re-run `eng/apply-repo-standard.ps1 -StandardVersion v1.3.0`, regenerate inline copies under `docs/Standards/`, bump the per-repo `CLAUDE.md`, then update the table above.
 
-Per `MIGRATION.md`'s v1.2.0 section: each work repo also runs a one-time export of any open `<Component>/ISSUES.md` / root-level `ISSUES_TRACKER.md` entries to GitHub Issues *before* the rollout PR deletes those files on disk. Per-component `README.md` files are kept (regenerated using the new template).
+Repos still on v1.2.0 / earlier additionally pick up the v1.2.0 standards bundle (eight standards + three doc templates) and the v1.2.1 template-placeholder fix on the same bump. `MIGRATION.md`'s v1.2.0 section still applies for those: each work repo runs a one-time export of any open `<Component>/ISSUES.md` / root-level `ISSUES_TRACKER.md` entries to GitHub Issues *before* the rollout PR deletes those files on disk. Per-component `README.md` files are kept (regenerated using the new template).

@@ -14,8 +14,15 @@ The version number is the git tag (`v1.0.0`, `v1.1.0`, …). There is no version
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-05-06
+
 ### Added
 - `shared/templates/LICENSE.template` — STEM proprietary-EULA template parameterized on `{{App}}`, `{{Year}}`, `{{Author}}`. Wired into `apply-repo-standard.ps1` as a **bootstrap-only** file (alongside `CHANGELOG.md`), so first-time rollouts seed it but re-runs never overwrite per-repo customisations. Lifted from the `stem-communication` LICENSE body, which had been copy-pasted (with a "DUMMY" disclaimer header) into every other STEM repo. The disclaimer is dropped here; the body is unchanged.
+- `shared/skills/pr/SKILL.md`: new "Stacked PRs — base-branch deletion trap" section documenting the failure mode where merging the foundation of a stack with `--delete-branch` auto-closes every dependent PR (and closed PRs whose base is gone cannot be reopened). Covers pre-merge defence (retarget dependents to `main`), recovery (recreate against `main`, cross-link the old PR), and local cleanup after each rebase-merge. Hit during the `feat/001-dictionary-from-api` 5-PR merge train on `stem-button-panel-tester`. Closes #35.
+- `shared/standards/MIGRATION.md`: new Anti-patterns entry warning against hardcoding the Standard version inside `.specify/memory/constitution.md` (or any other speckit artefact). The rollout script's ownership ends at `docs/Standards/` + `CLAUDE.md`/`README.md` templates and does not rewrite `.specify/`, so a literal version pinned in the constitution silently goes stale on every bump. Authors should reference the version indirectly via the `**Standard version:**` line in the repo's top-level `CLAUDE.md`. Includes ✅/❌ wording examples. Closes #37.
+
+### Changed
+- CI template (`shared/templates/.github/workflows/ci.yml`) and CI standard (`shared/standards/CI.md`): the default formatting gate is now `dotnet format whitespace --verify-no-changes --no-restore`, not the full `dotnet format`. The full variant fails on GitHub-hosted runners with `CS0246` on cross-language refs (C# → F#) during the analyzer phase, even after a successful build — Roslyn's `MSBuildWorkspace` doesn't fully resolve cross-language refs on those images. The same command passes locally. Analyzer/style enforcement still happens via the build's `TreatWarningsAsErrors`, so the whitespace check is sufficient at the CI gate. Husky.NET pre-commit keeps running the full check locally, where the gap doesn't manifest. `shared/standards/BUILD_CONFIG.md`'s "Build invariants (CI enforces these)" snippet was updated to match. `shared/skills/dotnet/SKILL.md` got a Troubleshooting entry pointing at the new gate. Revisit when .NET SDK 11 / Roslyn ship; if `MSBuildWorkspace` gains full cross-language resolution on the hosted runners, restore the full check. Closes #36.
 
 ## [1.2.1] - 2026-05-06
 
