@@ -14,6 +14,11 @@ The version number is the git tag (`v1.0.0`, `v1.1.0`, …). There is no version
 
 ## [Unreleased]
 
+## [1.3.2] - 2026-05-07
+
+### Changed
+- `shared/standards/MIGRATION.md`: split the pre-`v1.3.1` lockfile pitfall bullet into two cases. Minor local divergence still gets a straight `-Force`; substantive local divergence (`Directory.Packages.props`, `.github/workflows/*.yml`, `CLAUDE.md`, `README.md` with repo-specific narrative) gets the seed-then-restore recipe — `-Force` to seed the lock with template hashes, immediate `git checkout HEAD -- <customised files>` to restore pre-bump content, then a hand-bump of version stamps. After that, `disk != lock` is the desired permanent state and future bumps auto-skip those files. Cross-links the `stem-button-panel-tester` v1.2.1 → v1.3.1 bump as the worked example. Closes #45.
+
 ## [1.3.1] - 2026-05-07
 
 ### Fixed
