@@ -1,0 +1,17 @@
+version: 2
+
+updates:
+  # llm-settings has no .csproj/.fsproj — only github-actions is bumpable here.
+  # NuGet drift in shared/templates/Directory.Packages.props is caught manually
+  # against a freshly-bootstrapped repo (see shared/standards/MIGRATION.md).
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Rome
+    open-pull-requests-limit: 10
+    groups:
+      gha-minor-and-patch:
+        update-types: [minor, patch]
