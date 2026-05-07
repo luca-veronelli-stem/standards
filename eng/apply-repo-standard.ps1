@@ -20,6 +20,13 @@
         source tag (read from .stem-standard.lock) and the target tag.
       - -DryRun prints unified diffs of would-be changes (uses git diff).
 
+    Out of scope: per-component README.md files (e.g. src/<Component>/README.md).
+    Ownership ends at the top-level README.md and CLAUDE.md. Per-component
+    READMEs are managed by hand on adoption -- typically deleted after a
+    salvage pass for non-derivable content, optionally regenerated from
+    shared/templates/docs/README_TEMPLATE.md per component. See
+    shared/standards/MIGRATION.md (v1.2.0 section) for the salvage checklist.
+
     See shared/standards/MIGRATION.md for the rollout flow.
 
 .PARAMETER RepoPath

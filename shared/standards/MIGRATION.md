@@ -33,10 +33,16 @@ Each phase opens a single PR per repo titled `chore: adopt llm-settings v1.0.0 s
 Per-repo adoption PR (`chore: bump standards to v1.2.0`):
 
 1. **Before running the script:** run a one-time export of any open `<Component>/ISSUES.md` and root-level `ISSUES_TRACKER.md` entries to GitHub Issues with appropriate labels (`feat`/`fix`/`chore`/…). The rollout deletes those files; their content has to land in the tracker first or it's lost.
-2. Re-run `eng/apply-repo-standard.ps1 -StandardVersion v1.2.0`. The script regenerates `docs/Standards/` with the new content standards alongside the v1.0 ones, removes the on-disk `ISSUES.md` / `ISSUES_TRACKER.md` files (their content is now in the GitHub tracker), and refreshes per-component `README.md` files using the new template (manual review for any per-repo-specific content the template doesn't cover).
-3. Bump the per-repo `CLAUDE.md` `**Standard version:**` line to `v1.2.0`.
-4. Update `state/repos.md` to reflect the bump.
-5. Single-commit PR.
+2. **Salvage non-derivable content from per-component `README.md` files** *before* deleting them. The rollout script does **not** regenerate per-component READMEs (its ownership ends at the top-level `README.md` and `CLAUDE.md`), and adopters routinely delete the pre-v1 ones rather than rewrite them in place — see `stem-button-panel-tester` commit `f0e69f0` (2026-05-05) and the `feat/legacy-docs-snapshot` branch in this repo. Before the deletion, scan each `<Component>/README.md` for content that doesn't live anywhere else in the repo:
+   - cross-system context (consumer matrices, deploy runbooks);
+   - domain semantics not present in code (state machines, business rules referenced as `BR-*` or similar);
+   - external system references (third-party APIs, hardware addresses, magic numbers).
+
+   Move that content to a better home: XML doc on the relevant types, a top-level `docs/Domain.md` or `docs/Deploy.md`, or `specs/` for invariants that warrant Lean formalization. *Then* delete; the snapshot branch is the rollback. Adding a fresh `README.md` from `shared/templates/docs/README_TEMPLATE.md` is opt-in per component — only do it where the component actually earns its keep (a stub README with no non-derivable content is worse than no README).
+3. Re-run `eng/apply-repo-standard.ps1 -StandardVersion v1.2.0`. The script regenerates `docs/Standards/` with the new content standards alongside the v1.0 ones and removes the on-disk `ISSUES.md` / `ISSUES_TRACKER.md` files (their content is now in the GitHub tracker). Per-component `README.md` files are not touched — keep, delete, or regenerate by hand per the previous step.
+4. Bump the per-repo `CLAUDE.md` `**Standard version:**` line to `v1.2.0`.
+5. Update `state/repos.md` to reflect the bump.
+6. Single-commit PR.
 
 ## What a v1 adoption PR contains
 
