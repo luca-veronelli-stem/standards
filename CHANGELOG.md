@@ -14,6 +14,12 @@ The version number is the git tag (`v1.0.0`, `v1.1.0`, …). There is no version
 
 ## [Unreleased]
 
+### Added
+- `.github/dependabot.yml` for `llm-settings` itself, scoped to the `github-actions` ecosystem with minor/patch grouping. Majors stay individual so behaviour-changing bumps (e.g. the `dorny/test-reporter` v3 sink flip) get reviewed in isolation. NuGet is not enabled — `llm-settings` has no `.csproj`/`.fsproj` for Dependabot to walk; the `Directory.Packages.props` template is refreshed manually before each cut. `shared/standards/MIGRATION.md` got a new "Keeping the templates current" section codifying the mirror rule (GHA Dependabot PR here → fold the same bump into `shared/templates/**/*.yml`) and the manual NuGet refresh procedure. Closes #50.
+
+### Changed
+- Workflow templates: `actions/cache@v4 → v5`, `actions/setup-dotnet@v4 → v5`, `softprops/action-gh-release@v2 → v3`, `dorny/test-reporter@v1 → v3`. The `dorny/test-reporter` v3 default sink moved to `$GITHUB_STEP_SUMMARY`, which silently drops the per-OS Tests check at PR level (observed on `stem-dictionaries-manager#25`); pinned `use-actions-summary: 'false'` on the `ci.yml` step to keep the legacy Check Run sink so the gate still renders inline. Touches `shared/templates/.github/workflows/ci.yml` and `shared/templates/archetypes/{A,B}/.github/workflows/release.yml`. `shared/standards/CI.md` and the `github-actions` / `bitbucket-pipelines` skills' references were updated to match. Closes #49.
+
 ## [1.3.2] - 2026-05-07
 
 ### Changed
