@@ -55,7 +55,7 @@ Don't add tests, matrices, artifact uploads, or cache layering — those belong 
 | --- | --- | --- |
 | Triggers | `on: [push, pull_request]` | `pipelines.default` / `branches` / `pull-requests` |
 | Runner | `runs-on: ubuntu-latest` | `image:` (Docker image used for all steps) |
-| Cache | `actions/cache@v4` | `caches:` definition + `caches:` on step |
+| Cache | `actions/cache@v5` | `caches:` definition + `caches:` on step |
 | Secrets | `secrets.NAME` | Repository Variables (web UI) |
 | Artifacts | `actions/upload-artifact@v4` | `artifacts:` list on step |
 | Matrix | `strategy.matrix` | `parallel:` with duplicated steps |

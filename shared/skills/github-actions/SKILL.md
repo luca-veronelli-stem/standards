@@ -45,11 +45,11 @@ The rollout script overwrites `.github/workflows/*.yml` on bump. Repo-specific e
 
 - **Always set `concurrency`** with `cancel-in-progress: true`. The templates do this.
 - **Set `permissions:` explicitly** per workflow (default `contents: read`; grant `contents: write` only when releases/tags are involved; `packages: write` for archetype B's release).
-- **Use `actions/setup-dotnet@v4`** with `global-json-file: global.json`. Don't pin `dotnet-version:` directly.
-- **Use `actions/cache@v4`** for NuGet restore; key off `Directory.Packages.props` hash (the template does this).
+- **Use `actions/setup-dotnet@v5`** with `global-json-file: global.json`. Don't pin `dotnet-version:` directly.
+- **Use `actions/cache@v5`** for NuGet restore; key off `Directory.Packages.props` hash (the template does this).
 - **Use multi-TFM legs conditionally** — Linux runs `--framework net10.0`; Windows runs unrestricted.
 - **Don't run `net10.0-windows` tests on Linux** — the template's conditional steps handle this.
-- **Upload test results** even on failure (`if: always()`). The template uses `dorny/test-reporter@v1` for inline PR-check rendering.
+- **Upload test results** even on failure (`if: always()`). The template uses `dorny/test-reporter@v3` with `use-actions-summary: 'false'` so the per-OS Tests check renders inline on PRs (the v3 default sink is `$GITHUB_STEP_SUMMARY`, which silently drops the gate).
 - **Never hard-code secrets.** Use `${{ secrets.NAME }}` and set them via `gh secret set NAME --body "..."`.
 
 ## NuGet publish — archetype B (GitHub Packages)
