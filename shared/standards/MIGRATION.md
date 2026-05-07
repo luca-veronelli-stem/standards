@@ -94,6 +94,13 @@ Patches (`v1.0.1`) bump the same way but usually produce zero or near-zero diff 
 
 If a bump regresses a repo, revert the PR and bump `**Standard version:**` back. `state/repos.md` shows the lag until fixed forward in `llm-settings`.
 
+## Keeping the templates current
+
+Two ecosystems pin versions inside `shared/templates/`. Drift on either side replays as a wave of Dependabot PRs against every newly-adopted repo, so they're worth catching here first.
+
+- **GitHub Actions.** `llm-settings/.github/dependabot.yml` watches the repo's own workflows weekly and groups minor/patch bumps. **When merging a GHA Dependabot PR, mirror the same bump into the matching template files** — `shared/templates/.github/workflows/*.yml` and `shared/templates/archetypes/{A,B}/.github/workflows/release.yml` — in the same PR or a follow-up. Without that mirror the templates go stale, and consumer repos rebump on their next standards adoption.
+- **NuGet.** `llm-settings` has no `.csproj`/`.fsproj`, so Dependabot can't watch `shared/templates/Directory.Packages.props`. Refresh it manually before each release cut: bootstrap a throwaway repo, run `dotnet outdated`, fold any patch/minor bumps back into the template, re-run the rollout to pick them up. Skip preview tags unless intentional.
+
 ## Anti-patterns
 
 - **Squashing language migration into the structural PR.** Two reviews, two PRs.
