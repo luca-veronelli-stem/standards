@@ -330,6 +330,7 @@ function Invoke-TemplateFile {
         [string]$SourceRoot,
         [string]$DestRoot,
         [string]$Tag,
+        [string]$DestRelativePrefix = '',  # prepended to dest-relative path so lock keys are uniform with $repoFull-relative form
         [bool]  $AlwaysIterate = $false   # bypasses -Minimal scoping (for version-stamped files)
     )
 
@@ -339,6 +340,9 @@ function Invoke-TemplateFile {
         $relative.Substring(0, $relative.Length - '.template'.Length)
     } else {
         $relative
+    }
+    if ($DestRelativePrefix) {
+        $destRelative = (Join-Path $DestRelativePrefix $destRelative)
     }
     $destRelativeFwd = $destRelative.Replace('\','/')
 
@@ -394,14 +398,21 @@ function Invoke-TemplateFile {
         }
 
         # Decide whether the on-disk content was hand-edited:
-        #   - If we have a lock baseline, the answer is exact: disk != lockHash means
-        #     the user changed it since the last rollout.
+        #   - If we have a lock baseline AND a hash for this file, the answer is
+        #     exact: disk != lockHash means the user changed it since the last rollout.
+        #   - If we have a lock baseline but no hash for this file, the file slipped
+        #     past an earlier (lossy) rollout's lock-write. Treat as locally-modified
+        #     so the user opts in via -Force; otherwise we'd silently clobber.
         #   - If we don't have a lock but the repo was previously bootstrapped, we
         #     can't tell what the previous rollout wrote -- assume locally-modified
         #     for safety (the user uses -Force on the first hardened run to seed).
         #   - If we have neither (true first bootstrap), nothing to protect -- write.
         if ($hasLockBaseline) {
-            $isLocallyModified = $lockHash -and ($diskHash -ne $lockHash)
+            if ($lockHash) {
+                $isLocallyModified = ($diskHash -ne $lockHash)
+            } else {
+                $isLocallyModified = $true
+            }
         } elseif ($repoIsBootstrapped) {
             $isLocallyModified = $true
         } else {
@@ -485,7 +496,13 @@ if (-not $DryRun -and -not (Test-Path $standardsTarget)) {
     New-Item -ItemType Directory -Path $standardsTarget -Force | Out-Null
 }
 Get-ChildItem -Path $standardsRoot -Filter *.md -File | ForEach-Object {
-    Invoke-TemplateFile -SourceFile $_.FullName -SourceRoot $standardsRoot -DestRoot $standardsTarget -Tag 'standards'
+    # Pass DestRoot=$repoFull with a docs/Standards/ prefix so lock keys for
+    # standards files match the repo-relative form used by common templates
+    # (BUILD_CONFIG.md -> docs/Standards/BUILD_CONFIG.md). Earlier versions
+    # passed $standardsTarget as DestRoot, producing bare-filename keys that
+    # didn't round-trip to the lookup form -- defeating the local-edit guard
+    # (issue #42).
+    Invoke-TemplateFile -SourceFile $_.FullName -SourceRoot $standardsRoot -DestRoot $repoFull -DestRelativePrefix 'docs/Standards/' -Tag 'standards'
 }
 
 # Generate docs/Standards/README.md index. Always rendered (carries the
@@ -543,7 +560,13 @@ if ($indexDiskHash -eq $indexNewHash) {
         $indexLockHash = $lock.files.$indexDestRel
     }
     $indexLocallyModified = if ($hasLockBaseline) {
-        $indexExists -and $indexLockHash -and ($indexDiskHash -ne $indexLockHash)
+        if ($indexLockHash) {
+            $indexExists -and ($indexDiskHash -ne $indexLockHash)
+        } else {
+            # Missing lock entry with target on disk -- treat as locally-modified
+            # (mirrors Defect 1 fix in Invoke-TemplateFile, issue #42).
+            $indexExists
+        }
     } elseif ($repoIsBootstrapped) {
         $indexExists
     } else {

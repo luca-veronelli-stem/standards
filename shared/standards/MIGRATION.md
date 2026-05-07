@@ -106,3 +106,7 @@ If a bump regresses a repo, revert the PR and bump `**Standard version:**` back.
   ❌ "The repo MUST follow STEM v1.2.1 standards verbatim."
 
   Illustrative version literals in narrative text (e.g. "v1.2.1 → v1.3.0 added X") are fine — they're examples, not contracts.
+
+## Pitfalls
+
+- **Upgrading from a pre-`v1.3.1` lockfile.** Lockfiles written by the rollout script before `v1.3.1` had two gaps: standards files were keyed by bare filename instead of `docs/Standards/<NAME>.md`, and a number of common-template files (e.g. `CLAUDE.md`, `README.md`, `Directory.Packages.props`, `.github/workflows/*.yml`) were not always recorded. From `v1.3.1` onward, the script treats a missing lock entry on a file that exists on disk as locally-modified, so the **first** post-fix run on a pre-`v1.3.1` repo will skip those files with a `(local edit; pass -Force to overwrite)` warning. Inspect the diff manually, then re-run with `-Force` to opt in and seed the missing entries. Subsequent bumps work normally.
