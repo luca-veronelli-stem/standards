@@ -14,6 +14,8 @@ The version number is the git tag (`v1.0.0`, `v1.1.0`, …). There is no version
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-05-07
+
 ### Fixed
 - `eng/apply-repo-standard.ps1`: the skip-local-edits guard no longer silently clobbers customised files when the `.stem-standard.lock` is missing entries for them. Two defects converged on the same boolean short-circuit at the lock-baseline check: (1) when a file existed on disk but had no entry in `lock.files`, the guard fell through to "write" instead of skipping; (2) standards files were keyed by bare filename in the lock map but looked up by `docs/Standards/<NAME>.md`, so the lookup always missed and inherited defect (1). Hit on the v1.2.1 → v1.3.0 bump on `stem-button-panel-tester`, where it overwrote `CLAUDE.md`, `README.md`, `Directory.Packages.props`, and both GitHub workflows — regressing action versions and removing test-filter expressions, dependency pins, and per-repo entries. The fix treats a missing lock entry on an existing target as locally-modified (skip with the standard `(local edit; pass -Force to overwrite)` warning) and routes the standards loop through `Invoke-TemplateFile` with `-DestRoot $repoFull -DestRelativePrefix 'docs/Standards/'` so lock keys are uniform. `shared/standards/MIGRATION.md` got a new Pitfalls section flagging that the first post-`v1.3.1` run on a pre-fix lockfile will skip the previously-unprotected files until the user inspects the diff and re-runs with `-Force` to seed the missing entries. Closes #42.
 

@@ -38,8 +38,8 @@ When a repo is bumped to a new Standard version:
 - `—` — repo exists but has not yet adopted any standard.
 - `n/a` — concept of a Standard version doesn't apply to this repo (e.g. `llm-settings` itself).
 
-## Pending adoption — v1.3.0
+## Pending adoption — v1.3.1
 
-`v1.3.0` ships a new `LICENSE.template` (bootstrap-only) and switches the CI formatting gate to `dotnet format whitespace --verify-no-changes --no-restore`, plus skill/standard documentation additions. Per-repo adoption follows `MIGRATION.md`'s minor-bump procedure — re-run `eng/apply-repo-standard.ps1 -StandardVersion v1.3.0`, regenerate inline copies under `docs/Standards/`, bump the per-repo `CLAUDE.md`, then update the table above.
+`v1.3.1` patches the rollout script's skip-local-edits guard so it no longer clobbers customised files when the `.stem-standard.lock` is missing entries for them (issue #42). It is a pure patch on top of `v1.3.0`'s `LICENSE.template`, the whitespace-only CI formatting gate, and the speckit/standard documentation additions. Per-repo adoption follows `MIGRATION.md`'s minor-bump procedure — re-run `eng/apply-repo-standard.ps1 -StandardVersion v1.3.1`, regenerate inline copies under `docs/Standards/`, bump the per-repo `CLAUDE.md`, then update the table above. **First post-fix run** on a pre-`v1.3.1` lockfile skips previously-unprotected files (`CLAUDE.md`, `README.md`, `Directory.Packages.props`, workflows, the standards files themselves) — inspect the diff, then re-run with `-Force` to seed the missing entries; see `MIGRATION.md`'s Pitfalls section.
 
 Repos still on v1.2.0 / earlier additionally pick up the v1.2.0 standards bundle (eight standards + three doc templates) and the v1.2.1 template-placeholder fix on the same bump. `MIGRATION.md`'s v1.2.0 section still applies for those: each work repo runs a one-time export of any open `<Component>/ISSUES.md` / root-level `ISSUES_TRACKER.md` entries to GitHub Issues *before* the rollout PR deletes those files on disk. Per-component `README.md` files are kept (regenerated using the new template).
