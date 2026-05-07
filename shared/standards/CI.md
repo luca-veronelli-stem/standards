@@ -53,22 +53,23 @@ The Linux leg builds only `net10.0`. The Windows leg builds both `net10.0` and `
 
 ## Test reporting
 
-`dorny/test-reporter@v1` consumes the TRX output from `dotnet test --logger trx` and surfaces failed tests in the PR check. Step:
+`dorny/test-reporter@v3` consumes the TRX output from `dotnet test --logger trx` and surfaces failed tests in the PR check. Step:
 
 ```yaml
 - name: Test
   run: dotnet test --configuration Release --no-build --logger "trx;LogFileName=test-results.trx"
 
 - name: Test report
-  uses: dorny/test-reporter@v1
+  uses: dorny/test-reporter@v3
   if: always()
   with:
     name: Tests (${{ matrix.os }})
     path: '**/test-results.trx'
     reporter: dotnet-trx
+    use-actions-summary: 'false'
 ```
 
-`if: always()` so failed tests still produce a report.
+`if: always()` so failed tests still produce a report. `use-actions-summary: 'false'` opts back into the legacy Check Run sink — v3's default writes to `$GITHUB_STEP_SUMMARY` instead, which silently drops the per-OS Tests gate at PR level.
 
 ## Release workflow — archetype A
 
@@ -77,7 +78,7 @@ Triggered on `v*.*.*` tag push. Steps:
 1. Checkout, setup-dotnet from `global.json`.
 2. `dotnet publish src/<App>.GUI -c Release -r win-x64 --self-contained -p:PublishSingleFile=true`.
 3. `Compress-Archive` to `<app>-<version>-win-x64.zip`.
-4. `softprops/action-gh-release@v2` — creates a GitHub Release with the zip attached and the matching CHANGELOG entry as body.
+4. `softprops/action-gh-release@v3` — creates a GitHub Release with the zip attached and the matching CHANGELOG entry as body.
 
 Why archetype A needs a release workflow: the desktop app's distributable is a self-contained zip. Without it, "release" means "open the IDE and copy bin/Release somewhere" — fragile and unreproducible.
 
@@ -88,7 +89,7 @@ Triggered on `v*.*.*` tag push. Steps:
 1. Checkout, setup-dotnet.
 2. `dotnet pack -c Release -o ./packages -p:Version=$VERSION`.
 3. `dotnet nuget push` to GitHub Packages.
-4. `softprops/action-gh-release@v2` — GitHub Release with the matching CHANGELOG entry.
+4. `softprops/action-gh-release@v3` — GitHub Release with the matching CHANGELOG entry.
 
 ## Release workflow — archetype C
 
