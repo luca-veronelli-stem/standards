@@ -14,6 +14,8 @@ The version number is the git tag (`v1.0.0`, `v1.1.0`, …). There is no version
 
 ## [Unreleased]
 
+## [1.3.3] - 2026-05-07
+
 ### Added
 - `.github/dependabot.yml` for `llm-settings` itself, scoped to the `github-actions` ecosystem with minor/patch grouping. Majors stay individual so behaviour-changing bumps (e.g. the `dorny/test-reporter` v3 sink flip) get reviewed in isolation. NuGet is not enabled — `llm-settings` has no `.csproj`/`.fsproj` for Dependabot to walk; the `Directory.Packages.props` template is refreshed manually before each cut. `shared/standards/MIGRATION.md` got a new "Keeping the templates current" section codifying the mirror rule (GHA Dependabot PR here → fold the same bump into `shared/templates/**/*.yml`) and the manual NuGet refresh procedure. Closes #50.
 
