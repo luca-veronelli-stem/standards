@@ -1,0 +1,93 @@
+# Reusable workflow shipped from luca-veronelli-stem/standards. Adopted repos
+# call this via `uses: luca-veronelli-stem/standards/.github/workflows/dotnet-ci.yml@<version>`
+# from a thin stub in their own .github/workflows/ci.yml. Bumping a pin here
+# (e.g. setup-dotnet, dorny/test-reporter) propagates to adopted repos on
+# their next CI run, with no per-repo PR.
+#
+# Source of truth for invariants: shared/standards/CI.md.
+
+name: dotnet-ci (reusable)
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
+jobs:
+  build:
+    name: build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v5
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/Directory.Packages.props') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Cache Lean toolchain
+        if: hashFiles('lean-toolchain') != ''
+        uses: actions/cache@v5
+        with:
+          path: ~/.elan
+          key: ${{ runner.os }}-elan-${{ hashFiles('lean-toolchain') }}
+
+      - name: Restore
+        run: dotnet restore
+
+      # Whitespace-only because the analyzer phase of `dotnet format` fails with
+      # CS0246 on cross-language refs (C# -> F#) on GitHub-hosted runners, even
+      # after a successful build. Analyzer/style rules are still enforced via the
+      # build's TreatWarningsAsErrors. See docs/Standards/CI.md ->
+      # "Format check is a hard gate (whitespace-only in CI)".
+      - name: Verify formatting (whitespace)
+        run: dotnet format whitespace --verify-no-changes --no-restore
+
+      # No --framework filter: it overrides per-project TFMs and breaks legacy
+      # net10.0-windows projects. The Linux test leg below enforces the
+      # cross-platform contract (Tests are net10.0-only).
+      - name: Build (cross-platform leg)
+        if: runner.os == 'Linux'
+        run: dotnet build --configuration Release --no-restore
+
+      - name: Build (full leg, includes net10.0-windows)
+        if: runner.os == 'Windows'
+        run: dotnet build --configuration Release --no-restore
+
+      - name: Test (cross-platform leg)
+        if: runner.os == 'Linux'
+        run: dotnet test --framework net10.0 --configuration Release --no-build --logger "trx;LogFileName=test-results.trx"
+
+      - name: Test (full leg)
+        if: runner.os == 'Windows'
+        run: dotnet test --configuration Release --no-build --logger "trx;LogFileName=test-results.trx"
+
+      - name: Test report
+        uses: dorny/test-reporter@v3
+        if: always()
+        with:
+          name: Tests (${{ matrix.os }})
+          path: '**/test-results.trx'
+          reporter: dotnet-trx
+          # v3 default writes results to $GITHUB_STEP_SUMMARY instead of a Check
+          # Run, which silently drops the per-OS Tests check at PR level. Opt
+          # back into the Check Run sink so the gate stays visible on PRs.
+          use-actions-summary: 'false'
