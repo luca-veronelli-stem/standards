@@ -88,3 +88,38 @@ jobs:
           }
           if ($failed) { exit 1 }
           Write-Host "templates parse: clean ($($files.Count) files)."
+
+      # Protects: the standards-doc shape every adopted repo's docs/Standards/
+      # consumer reads. Each shared/standards/<NAME>.md must lead with
+      # `# Standard: <NAME>` and carry a `> **Stability:** ...` line in the
+      # head. Catches accidental drift on edits (renamed heading, missing
+      # stability marker, basename/title mismatch).
+      - name: Standards-doc structure
+        shell: pwsh
+        run: |
+          $failed = $false
+          $files  = Get-ChildItem -Path shared/standards -Filter *.md -File
+          foreach ($f in $files) {
+            $rel  = "shared/standards/$($f.Name)"
+            $name = [System.IO.Path]::GetFileNameWithoutExtension($f.Name)
+            $lines = Get-Content $f.FullName
+            $fileFailed = $false
+            if ($lines.Count -lt 3) {
+              Write-Host "::error file=$rel::file too short (expected H1 + Stability line)"
+              $fileFailed = $true
+            } else {
+              $expectedH1 = "# Standard: $name"
+              if ($lines[0].TrimEnd() -ne $expectedH1) {
+                Write-Host "::error file=$rel,line=1::line 1 must be '$expectedH1', got '$($lines[0])'"
+                $fileFailed = $true
+              }
+              $head = $lines | Select-Object -First 10
+              if (-not ($head -match '^> \*\*Stability:\*\*')) {
+                Write-Host "::error file=$rel::missing '> **Stability:** ...' in first 10 lines"
+                $fileFailed = $true
+              }
+            }
+            if ($fileFailed) { $failed = $true } else { Write-Host "ok: $rel" }
+          }
+          if ($failed) { exit 1 }
+          Write-Host "standards-doc structure: clean ($($files.Count) docs)."
