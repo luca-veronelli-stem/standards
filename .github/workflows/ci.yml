@@ -123,3 +123,39 @@ jobs:
           }
           if ($failed) { exit 1 }
           Write-Host "standards-doc structure: clean ($($files.Count) docs)."
+
+      # Protects: the docs/Standards/README.md index every adopted repo
+      # receives. Catches drift between the rollout's $standardPurpose
+      # registry (in eng/apply-repo-standard.ps1) and the on-disk
+      # shared/standards/*.md set: either an orphan file shipped without an
+      # index entry, or a registry entry pointing at a missing/renamed file.
+      - name: Cross-reference (registry vs. files)
+        shell: pwsh
+        run: |
+          $script  = Get-Content eng/apply-repo-standard.ps1 -Raw
+          $pattern = '(?ms)\$standardPurpose\s*=\s*\[ordered\]@\{(.*?)^\s*\}'
+          $m = [regex]::Match($script, $pattern)
+          if (-not $m.Success) {
+            Write-Host "::error file=eng/apply-repo-standard.ps1::could not locate `$standardPurpose hashtable"
+            exit 1
+          }
+          $referenced = [regex]::Matches($m.Groups[1].Value, "(?m)^\s*'([A-Z_]+)'") `
+            | ForEach-Object { $_.Groups[1].Value }
+          $onDisk = Get-ChildItem -Path shared/standards -Filter *.md -File `
+            | ForEach-Object { [System.IO.Path]::GetFileNameWithoutExtension($_.Name) }
+
+          $failed = $false
+          foreach ($k in $referenced) {
+            if ($k -notin $onDisk) {
+              Write-Host "::error file=eng/apply-repo-standard.ps1::registry entry '$k' has no shared/standards/$k.md"
+              $failed = $true
+            }
+          }
+          foreach ($f in $onDisk) {
+            if ($f -notin $referenced) {
+              Write-Host "::error file=shared/standards/$f.md::on-disk standard not registered in `$standardPurpose (eng/apply-repo-standard.ps1)"
+              $failed = $true
+            }
+          }
+          if ($failed) { exit 1 }
+          Write-Host "cross-reference: clean ($($referenced.Count) registry entries match $($onDisk.Count) on-disk files)."
