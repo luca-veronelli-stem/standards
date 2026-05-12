@@ -1,10 +1,10 @@
 #requires -Version 5.1
 <#
 .SYNOPSIS
-    Bootstraps or bumps a STEM repo to a given llm-settings Standard version.
+    Bootstraps or bumps a STEM repo to a given Standard version.
 
 .DESCRIPTION
-    Copies the v1 templates and standards from this llm-settings checkout
+    Copies the templates and standards from this standards repo checkout
     into a target work repo, substituting {{Placeholder}} markers with values
     from the parameters and from .stem-standard.json (written on first run,
     read on subsequent runs).
@@ -51,7 +51,7 @@
     Often the same as -Owner.
 
 .PARAMETER StandardVersion
-    The llm-settings tag this repo should pin to (e.g. 'v1.0.0').
+    The standards repo tag this repo should pin to (e.g. 'v1.0.0').
 
 .PARAMETER Author
     Author name for README/CHANGELOG headers. Used to fill {{Author}}.
@@ -76,7 +76,7 @@
 
 .EXAMPLE
     # First-time bootstrap
-    & 'C:\Users\LucaV\Source\Repos\llm-settings\eng\apply-repo-standard.ps1' `
+    & 'C:\Users\LucaV\Source\Repos\standards\eng\apply-repo-standard.ps1' `
         -RepoPath C:\Users\LucaV\Source\Repos\stem-device-manager `
         -App DeviceManager `
         -Archetype A `
@@ -87,7 +87,7 @@
 
 .EXAMPLE
     # Subsequent bump -- only StandardVersion needs to change.
-    & 'C:\Users\LucaV\Source\Repos\llm-settings\eng\apply-repo-standard.ps1' `
+    & 'C:\Users\LucaV\Source\Repos\standards\eng\apply-repo-standard.ps1' `
         -RepoPath C:\Users\LucaV\Source\Repos\stem-device-manager `
         -StandardVersion v1.1.0 `
         -Minimal
@@ -121,7 +121,7 @@ $templatesRoot   = Join-Path $llmSettingsRoot 'shared/templates'
 $standardsRoot   = Join-Path $llmSettingsRoot 'shared/standards'
 
 if (-not (Test-Path $templatesRoot)) {
-    throw "Templates root not found: $templatesRoot. Is this script in <llm-settings>/eng/?"
+    throw "Templates root not found: $templatesRoot. Is this script in <standards>/eng/?"
 }
 if (-not (Test-Path $standardsRoot)) {
     throw "Standards root not found: $standardsRoot."
@@ -281,7 +281,7 @@ function Show-UnifiedDiff {
 
 # --------------------------------------------------------------------------
 # Compute the -Minimal file set: files that changed between the locked
-# source tag and the target tag in the llm-settings repo.
+# source tag and the target tag in the standards repo.
 # --------------------------------------------------------------------------
 
 $minimalAllowedSourceRels = $null
@@ -301,7 +301,7 @@ if ($Minimal) {
                 $minimalAllowedSourceRels = @{}
                 foreach ($p in $diffOutput) {
                     if ([string]::IsNullOrWhiteSpace($p)) { continue }
-                    # Normalize to forward slashes; key by full path under llm-settings root.
+                    # Normalize to forward slashes; key by full path under repo root.
                     $minimalAllowedSourceRels[($p -replace '\\','/')] = $true
                 }
                 Write-Host "[-Minimal] $($minimalAllowedSourceRels.Count) source file(s) changed between $($lock.standardVersion) and $($cfg.standardVersion)." -ForegroundColor Cyan
@@ -536,7 +536,7 @@ $standardPurpose = [ordered]@{
 $indexLines = New-Object System.Collections.Generic.List[string]
 $indexLines.Add("# STEM standards (Standard version: $($cfg.standardVersion))")
 $indexLines.Add('')
-$indexLines.Add("These are inline copies pinned to ``$($cfg.standardVersion)``. Upstream source of truth is [`llm-settings/shared/standards/`](https://github.com/$($cfg.lucaUser)/llm-settings/tree/$($cfg.standardVersion)/shared/standards) (private repo).")
+$indexLines.Add("These are inline copies pinned to ``$($cfg.standardVersion)``. Upstream source of truth is [`standards/shared/standards/`](https://github.com/$($cfg.lucaUser)/standards/tree/$($cfg.standardVersion)/shared/standards) (private repo).")
 $indexLines.Add('')
 $indexLines.Add('| Standard | Purpose |')
 $indexLines.Add('| --- | --- |')
@@ -549,7 +549,7 @@ foreach ($kvp in $standardPurpose.GetEnumerator()) {
 $indexLines.Add('')
 $indexLines.Add('## Bumping the standard version')
 $indexLines.Add('')
-$indexLines.Add('Re-run the rollout from `<llm-settings>/eng/apply-repo-standard.ps1` with `-StandardVersion vX.Y.Z`. The script reads `.stem-standard.json` at the repo root, so only the new tag needs to be passed.')
+$indexLines.Add('Re-run the rollout from `<standards>/eng/apply-repo-standard.ps1` with `-StandardVersion vX.Y.Z`. The script reads `.stem-standard.json` at the repo root, so only the new tag needs to be passed.')
 
 $indexText = ($indexLines -join "`n") + "`n"
 $indexDestRel = 'docs/Standards/README.md'
@@ -654,6 +654,6 @@ if ($DryRun) {
 } else {
     Write-Host 'Next steps:'
     Write-Host "  1. Review: cd $repoFull; git status; git diff"
-    Write-Host '  2. Update <llm-settings>/state/repos.md to record the new version.'
+    Write-Host '  2. Update <standards>/state/repos.md to record the new version.'
     Write-Host '  3. Commit on a feature branch and open a PR.'
 }

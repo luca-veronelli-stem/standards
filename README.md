@@ -1,95 +1,42 @@
-# llm-settings
+# standards
 
-Personal Claude Code configuration for Luca — .NET 10 / C# work at STEM, Windows 11, dual-remote git workflow (GitHub primary, Bitbucket mirror).
+STEM cross-repo engineering standards: how a STEM .NET repo is shaped, what language and idioms its code follows, what its build and CI look like, and how it migrates between standard versions.
 
-Forked and heavily rewritten from [`paolino/llm-settings`](https://github.com/paolino/llm-settings). The shape is the same (skills / rules / MCP servers versioned in a repo, symlinked into `~/.claude/`), but everything Nix/Haskell/Cardano-specific has been stripped or replaced.
+## What's here
+
+Sixteen versioned standards plus the toolchain to apply them to a work repo.
+
+- **Eight structural standards** (`v1.0.0`): `REPO_STRUCTURE`, `LANGUAGE`, `MODULE_SEPARATION`, `PORTABILITY`, `BUILD_CONFIG`, `TESTING`, `CI`, `MIGRATION`. Govern repo shape, build configuration, and the rollout process.
+- **Eight content standards** (`v1.2.0`): `CANCELLATION`, `COMMENTS`, `CONFIGURATION`, `ERROR_HANDLING`, `EVENTARGS`, `LOGGING`, `THREAD_SAFETY`, `VISIBILITY`. Govern code-level idiom within adopted repos.
+
+Each standard is a single markdown file under [`shared/standards/`](./shared/standards/). Templates that the rollout copies into adopted repos live under [`shared/templates/`](./shared/templates/). The rollout script is [`eng/apply-repo-standard.ps1`](./eng/apply-repo-standard.ps1). Adoption is tracked in [`state/repos.md`](./state/repos.md).
 
 ## Layout
 
 ```
-install.ps1                  Windows PowerShell installer (PS 5.1 compatible)
-CHANGELOG.md                 SemVer changelog for the standards bundle
-claude/
-  CLAUDE.md                  global rules loaded by Claude Code
-  settings.json              permissions, hooks, MCP enablement
-  commands/                  custom slash-commands
-  hooks/                     PreToolUse scripts (.ps1)
-  rules/                     path-scoped rules (dotnet, dual-remote, stem-conventions, …)
-  scripts/                   helper scripts (Python/PowerShell)
 shared/
-  skills/                    reusable skills (workflow, pr, dotnet, github-actions, …)
-  standards/                 v1 cross-repo standards (REPO_STRUCTURE, LANGUAGE, …)
-  templates/                 templates copied into work repos by the rollout script
-  memory/                    per-project persistent memory (optional)
-  mcp/servers.json           MCP server definitions merged into ~/.claude.json
+  standards/      sixteen standards as markdown files
+  templates/      Directory.Build.props, Directory.Packages.props,
+                  .github/workflows/, archetype-specific overlays, doc templates
 eng/
-  apply-repo-standard.ps1    rollout / bump script (per-repo adoption of standards)
+  apply-repo-standard.ps1  rollout / bump script
 state/
-  repos.md                   STEM repos adoption tracker (which version each repo follows)
+  repos.md        adoption tracker (which repo follows which Standard version)
+CHANGELOG.md      Keep-a-Changelog history of versioned releases
 ```
 
-## Install
+## Archetypes
 
-From the repo root, in PowerShell:
+| Archetype | Shape | Example |
+| --- | --- | --- |
+| A | Desktop app — onion layering (`Core`/`Services`/`Infrastructure`/`GUI`) | `stem-device-manager`, `stem-button-panel-tester` |
+| B | Library — hexagonal layering (`Abstractions`/`Protocol`/`Drivers.*`) | `stem-communication` |
+| C | Meta/config — no `src/`, `tests/`, `specs/`. Layout depends on purpose | `standards` (this repo), `llm-settings` |
+| D | Reserved — triggers a `new-archetype` design session before adoption |
 
-```powershell
-.\install.ps1
-```
+See [`shared/standards/REPO_STRUCTURE.md`](./shared/standards/REPO_STRUCTURE.md) for the full archetype shapes.
 
-Full flow:
-
-1. Checks Windows Developer Mode (needed for symlinks without admin). If OFF, prints the one-line instruction to toggle it and stops.
-2. Installs prerequisites via `winget` (idempotent — skips already-installed): Node.js LTS, GitHub CLI, PowerShell 7, Python 3.12. Then `uv` via pip, `elan` via its installer.
-3. Symlinks `settings.json`, `CLAUDE.md`, `skills/`, `rules/`, `commands/`, `hooks/` into `%USERPROFILE%\.claude\`.
-4. Symlinks per-project memory files into `%USERPROFILE%\.claude\projects\<project>\memory\`.
-5. Merges `shared/mcp/servers.json` into `%USERPROFILE%\.claude.json`.
-
-Re-run whenever you want to refresh. Use `.\install.ps1 -SkipPrereqs` to skip the winget step, or `.\install.ps1 -SkipMcp` to skip the `.claude.json` merge.
-
-### Prereqs — what gets installed
-
-| Tool         | Source        | Why                                  |
-| ------------ | ------------- | ------------------------------------ |
-| Node.js LTS  | winget        | `npx` for `context7` and `playwright` MCP |
-| GitHub CLI   | winget        | PRs, issues, Actions runs, `new-ticket` skill |
-| PowerShell 7 | winget        | Better JSON handling, nicer scripting |
-| Python 3.12  | winget        | needed by some MCP servers (Lean LSP toolchain ecosystem) |
-| uv           | winget (`astral-sh.uv`) | `uvx` lightweight script runner used by `lean-lsp` MCP |
-| elan         | elan-init.ps1 | Lean 4 toolchain (`lake`, `lean`) |
-
-After a fresh install:
-
-```powershell
-gh auth login           # authenticate GitHub CLI
-# then open a NEW PowerShell window so PATH changes take effect
-```
-
-## What's wired up
-
-### Rules (auto-applied based on path)
-
-| Rule                       | Scope                                       |
-| -------------------------- | ------------------------------------------- |
-| `communication`            | Always on — tone, conciseness, no trailing summaries |
-| `no-attribution`           | Always on — no "Generated with Claude" footers |
-| `dotnet`                   | `*.cs`, `*.csproj`, `*.slnx`, `appsettings*.json` |
-| `dual-remote`              | Always on — two-remote git workflow conventions |
-| `promote-to-llm-settings`  | Always on — route durable, cross-repo guidance into this repo instead of memory |
-| `stem-conventions`         | `**/.stem-standard.json`, `**/docs/Standards/REPO_STRUCTURE.md` — points STEM work repos at the v1 standards |
-
-### Skills (available globally via `~/.claude/skills/`)
-
-Workflow & process: `workflow`, `pr`, `cleanup`, `new-repository`, `new-ticket`, `repo-report`
-
-Stack-specific: `dotnet`, `github-actions`, `bitbucket-pipelines`, `lean4`, `documentation`
-
-Spec-Driven Development: `speckit` + `speckit-{analyze,checklist,clarify,constitution,implement,plan,specify,tasks,taskstoissues}`
-
-General-purpose: `semantic-nav`
-
-### Standards (v1)
-
-Cross-repo conventions for STEM work repos live in `shared/standards/`. Inline copies land in each work repo's `docs/Standards/`, pinned to a specific Standard version:
+## The standards
 
 | Standard | Since | Purpose |
 | --- | --- | --- |
@@ -110,59 +57,36 @@ Cross-repo conventions for STEM work repos live in `shared/standards/`. Inline c
 | `ERROR_HANDLING` | v1.2 | Try-pattern / Result type / exception decision tree; BCL throw helpers |
 | `CONFIGURATION` | v1.2 | Constants → Configuration → Service pattern; library + app delivery mechanisms |
 
-Templates that land in each work repo (`Directory.Build.props`, `.editorconfig`, GitHub workflows, issue/PR templates, etc.) live under `shared/templates/`. Doc templates for authoring new standards and per-component READMEs live under `shared/templates/docs/`; the archetype-B-only `API_SURFACE.md` template lives under `shared/templates/archetypes/B/docs/`. Each STEM repo declares its **Standard version** in its top-level `CLAUDE.md`; `state/repos.md` mirrors those declarations.
+## Adopting these standards in a repo
 
-### Rollout script
+First-time bootstrap:
 
 ```powershell
-& '<llm-settings>/eng/apply-repo-standard.ps1' `
+& '<standards>/eng/apply-repo-standard.ps1' `
     -RepoPath <work-repo> `
     -App <Name> -Archetype A `
     -Owner <user> -LucaUser <user> `
-    -StandardVersion v1.0.0
+    -StandardVersion v1.3.3
 ```
 
-On subsequent bumps the script reads `.stem-standard.json` from the work repo, so only `-StandardVersion` needs to change. See the `MIGRATION` standard for the full procedure.
+Subsequent bumps read `.stem-standard.json` from the work repo, so only `-StandardVersion` needs to change. See [`MIGRATION.md`](./shared/standards/MIGRATION.md) for the full procedure.
 
-### MCP servers
+The rollout writes inline copies of the standards under the work repo's `docs/Standards/`. Those copies are regenerated by the script — don't hand-edit them; edit the upstream files in `shared/standards/` here instead.
 
-| Name         | Purpose                                    |
-| ------------ | ------------------------------------------ |
-| `context7`   | Library/API docs lookup (NuGet, .NET, EF Core, xUnit) |
-| `playwright` | Browser automation (Azure Portal, Bitbucket UI, …) |
-| `lean-lsp`   | Lean 4 LSP bridge for `Specs/PhaseN/*.lean` |
+## Versioning
 
-### Hooks
+Tags are git tags (`v1.0.0`, `v1.1.0`, …). Each adopted repo pins to a specific version via the `**Standard version:**` line in its top-level `CLAUDE.md`; [`state/repos.md`](./state/repos.md) mirrors those pins. Bump rules:
 
-- `PreToolUse` on `Edit|Write` → `worktree-guard.ps1` refuses to edit if the current git branch is `main` or `master`. Create a feature branch first.
+- **Major** — breaking change to a standard or template that forces adopters to migrate or pin an older version.
+- **Minor** — new standard, new template, or non-breaking change to an existing one.
+- **Patch** — bug fixes, typos, clarifications, internal refactors. No change to documented contracts.
 
-## Commands
+See [`MIGRATION.md`](./shared/standards/MIGRATION.md) for the per-version bump procedure.
 
-- **"install settings"** — run `.\install.ps1` from this repo.
-- **"refresh mcp"** — `.\install.ps1 -SkipPrereqs` (re-merges the MCP config only).
-- **"push all"** — push current branch to both `github` and `bitbucket` remotes. See the `dual-remote` rule for the pushurl trick.
+## Related repos
 
-## Maintenance
+This repo holds the standards themselves. Agent-side wiring (the Claude Code rules and skills that operationalize these standards) lives in [`luca-veronelli-stem/llm-settings`](https://github.com/luca-veronelli-stem/llm-settings).
 
-This repo is GitHub-only (no Bitbucket mirror). Push to `github` directly:
+## History
 
-```powershell
-git push github main
-```
-
-To add the remote for the first time, after cloning or initializing:
-
-```powershell
-git remote add github git@github.com:<luca-user>/llm-settings.git
-git push -u github main
-```
-
-## Known limitations
-
-- **`issue-lifecycle` MCP is not wired up.** The Python script in `claude/scripts/issue-lifecycle-mcp.py` targets `paolino/Planning` and needs write access to that board. Once access is granted (ask Paolo), wire it into `shared/mcp/servers.json`.
-- **`check-links` hook not ported.** Paolino's version was Babashka (`.bb`). A PowerShell rewrite is on the phase-2 list.
-- **Windows Developer Mode required** unless you run install.ps1 as admin. Symlinks are non-negotiable — repo edits need to be live in `~/.claude/`.
-
-## Credits
-
-Original structure by [Paolo Veronelli (`paolino`)](https://github.com/paolino). This fork strips the Linux/Nix/Haskell/Cardano scaffolding and replaces it with a Windows/.NET/STEM equivalent.
+This repo started as the `shared/standards/`, `shared/templates/`, `eng/`, and `state/` sections of `llm-settings`, itself forked from [`paolino/llm-settings`](https://github.com/paolino/llm-settings). Extracted into a standalone repo at the `v1.3.3` cut.

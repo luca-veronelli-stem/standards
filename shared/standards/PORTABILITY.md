@@ -6,7 +6,7 @@
 ## Default TFM
 
 - `<TargetFramework>net10.0</TargetFramework>` is the default in `Directory.Build.props`.
-- A project moves to `net10.0-windows` only when it directly references Windows APIs (Win32, WPF, WinForms, WMI). Under the v1 layered split this is rare — such code lives in named driver projects.
+- A project moves to `net10.0-windows` only when it directly references Windows APIs (Win32, WPF, WinForms, WMI). Under the layered split this is rare — such code lives in named driver projects.
 
 ## Pattern A — TFM-conditional packages
 

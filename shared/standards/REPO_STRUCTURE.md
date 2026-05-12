@@ -65,7 +65,7 @@ tests/
 
 ### Archetype C — Meta/Config
 
-`llm-settings` itself. No `src/`, `tests/`, `specs/`. Layout follows the existing `claude/` + `shared/` projection (see this repo's README).
+Repos like `standards` (this one) and `llm-settings`. No `src/`, `tests/`, `specs/`. Layout depends on the meta-config's purpose — see each repo's README. `standards` has `shared/standards/` + `shared/templates/` + `eng/` + `state/`; `llm-settings` has `claude/` + `shared/skills/` + `shared/mcp/`.
 
 ### Archetype D — New (placeholder)
 
@@ -73,20 +73,20 @@ Run a `new-archetype` design session before adopting any standard. Don't force-f
 
 ## Standards reference inside the repo
 
-`docs/Standards/` contains **inline copies** of the standards files from `llm-settings/shared/standards/`, pinned to the repo's current `**Standard version:**`. The rollout script (`eng/apply-repo-standard.ps1`) is the only writer — it copies the standards into `docs/Standards/` and regenerates a short `docs/Standards/README.md` index that points back to `llm-settings` as the upstream source of truth.
+`docs/Standards/` contains **inline copies** of the standards files from this repo's `shared/standards/`, pinned to the repo's current `**Standard version:**`. The rollout script (`eng/apply-repo-standard.ps1`) is the only writer — it copies the standards into `docs/Standards/` and regenerates a short `docs/Standards/README.md` index that points back to the `standards` repo as the upstream source of truth.
 
 ### Rationale — why inline copies, not symlinks or hyperlinks
 
 `llm-settings` itself uses symlinks at install time (e.g. `~/.claude/skills/` → `llm-settings/shared/skills/`), but those live outside any tracked git tree and only need to resolve on one machine.
 
-A symlink **inside** a work repo's tracked tree (`docs/Standards/` → `<llm-settings>/shared/standards/`) is a different problem: git stores the relative target as a tiny text file that has to resolve **everywhere the repo is read**.
+A symlink **inside** a work repo's tracked tree (`docs/Standards/` → `<standards>/shared/standards/`) is a different problem: git stores the relative target as a tiny text file that has to resolve **everywhere the repo is read**.
 
-| Where the work repo is read | In-repo symlink | Hyperlink to private llm-settings | Inline copy |
+| Where the work repo is read | In-repo symlink | Hyperlink to private standards | Inline copy |
 | --- | --- | --- | --- |
 | Local machine, both repos checked out | ✅ | ✅ | ✅ |
 | GitHub Actions runner | ❌ — sibling repo not cloned | ✅ (auth) | ✅ |
 | Bitbucket-only colleague's clone | ❌ — no GitHub access | ❌ — 404 on private repo | ✅ |
-| Drift risk if `llm-settings` evolves | none | low (pin to tag) | bounded by Standard version stamp + `state/repos.md` |
+| Drift risk if `standards` evolves | none | low (pin to tag) | bounded by Standard version stamp + `state/repos.md` |
 
 The dual-remote rule says colleagues read from Bitbucket, so the standards have to be physically present in the work repo. Symlinks and hyperlinks both fail that constraint; inline copy is the only option that survives.
 
@@ -106,7 +106,7 @@ The install-time symlinks are local-only, never committed, and serve a single us
 | xUnit test | `tests/<App>.Tests/` |
 | Lean 4 spec | `specs/<Namespace>/Phase<N>/` |
 | Build/release script | `eng/` |
-| Standard or convention doc | upstream in `llm-settings/shared/standards/`; cite from `docs/Standards.md` |
+| Standard or convention doc | upstream in this repo's `shared/standards/`; cite from `docs/Standards.md` |
 
 ## Solution file (.slnx)
 

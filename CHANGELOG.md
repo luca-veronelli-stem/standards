@@ -1,18 +1,25 @@
 # Changelog
 
-All notable changes to `llm-settings` follow [Semantic Versioning](https://semver.org/) and are recorded here in [Keep a Changelog](https://keepachangelog.com/) format.
+All notable changes to `standards` follow [Semantic Versioning](https://semver.org/) and are recorded here in [Keep a Changelog](https://keepachangelog.com/) format.
 
 Each STEM repo declares the **Standard version** it follows in its top-level `CLAUDE.md`. `state/repos.md` mirrors those declarations so a single glance shows which repos lag.
 
-## Versioning rules for `llm-settings`
+## Versioning rules
 
-- **Major** — breaking change to a standard, template, rule, skill, or installer that forces adopters to migrate or pin an older version.
-- **Minor** — new standard, new template, new rule, new skill, new installer capability, or a non-breaking change to an existing one.
+- **Major** — breaking change to a standard or template that forces adopters to migrate or pin an older version.
+- **Minor** — new standard or new template, or a non-breaking change to an existing one.
 - **Patch** — bug fixes that restore intended behaviour, plus typos, clarifications, and internal refactors. No change to documented contracts.
 
 The version number is the git tag (`v1.0.0`, `v1.1.0`, …). There is no version field inside any single file — `git describe` is the source of truth.
 
+Historical entries from `v1.0.0` through `v1.3.3` were written while this repo was bundled with the agent-config under the name `llm-settings`. From this point forward `standards` is scoped to the STEM standards alone; the agent-config wiring lives in [`luca-veronelli-stem/llm-settings`](https://github.com/luca-veronelli-stem/llm-settings) (unversioned, HEAD-only).
+
 ## [Unreleased]
+
+### Changed
+- Split the agent-config (`claude/`, `shared/skills/`, `shared/mcp/`, `install.ps1`, `PSScriptAnalyzerSettings.psd1`) into a sibling repo `luca-veronelli-stem/llm-settings`. This repo (formerly `luca-veronelli-stem/llm-settings`, renamed to `luca-veronelli-stem/standards`) is now scoped to the STEM cross-repo standards: docs, templates, rollout script, state tracker. Cross-references throughout the standards docs, templates, and `eng/apply-repo-standard.ps1` rewritten from `<llm-settings>/...` to `<standards>/...` (and to `this repo` where the context made the path self-referential). Inline copies in adopted repos pointed at the new upstream path on the next bump.
+- Inlined the no-mocks rule into `TESTING.md` so the standard is self-contained; the previous "Per `dotnet.md`" delegation pointed at an agent-side rule that no longer ships with this repo.
+- Dropped bare "v1" decoration in favour of either specific semver (`v1.3.3` when pinning) or "the standards" (generic reference). The major-version umbrella concept stays intact in `MIGRATION.md` for explaining v2 transitions.
 
 ## [1.3.3] - 2026-05-07
 

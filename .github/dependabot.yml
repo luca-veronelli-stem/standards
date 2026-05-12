@@ -1,7 +1,7 @@
 version: 2
 
 updates:
-  # llm-settings has no .csproj/.fsproj — only github-actions is bumpable here.
+  # This repo has no .csproj/.fsproj — only github-actions is bumpable here.
   # NuGet drift in shared/templates/Directory.Packages.props is caught manually
   # against a freshly-bootstrapped repo (see shared/standards/MIGRATION.md).
   - package-ecosystem: github-actions
