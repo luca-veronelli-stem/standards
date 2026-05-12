@@ -16,6 +16,9 @@ Historical entries from `v1.0.0` through `v1.3.3` were written while this repo w
 
 ## [Unreleased]
 
+### Fixed
+- `shared/templates/Directory.Packages.props`: pinned `xunit` to `2.9.3` (was `2.9.4`, which doesn't exist on nuget.org — the highest published version is `2.9.3`). The bad pin landed in `v1.3.3`'s package-version sweep (#51) and made any clean `dotnet restore` on a v1.3.x adopted repo with the standard test stack fail with `NU1102: Unable to find package xunit with version (>= 2.9.4)`. Surfaced while bootstrapping the v1.4.0 reusable-workflow e2e fixture (#58). Closes #64.
+
 ### Changed
 - Split the agent-config (`claude/`, `shared/skills/`, `shared/mcp/`, `install.ps1`, `PSScriptAnalyzerSettings.psd1`) into a sibling repo `luca-veronelli-stem/llm-settings`. This repo (formerly `luca-veronelli-stem/llm-settings`, renamed to `luca-veronelli-stem/standards`) is now scoped to the STEM cross-repo standards: docs, templates, rollout script, state tracker. Cross-references throughout the standards docs, templates, and `eng/apply-repo-standard.ps1` rewritten from `<llm-settings>/...` to `<standards>/...` (and to `this repo` where the context made the path self-referential). Inline copies in adopted repos pointed at the new upstream path on the next bump.
 - Inlined the no-mocks rule into `TESTING.md` so the standard is self-contained; the previous "Per `dotnet.md`" delegation pointed at an agent-side rule that no longer ships with this repo.
