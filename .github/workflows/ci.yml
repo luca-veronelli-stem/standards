@@ -159,3 +159,20 @@ jobs:
           }
           if ($failed) { exit 1 }
           Write-Host "cross-reference: clean ($($referenced.Count) registry entries match $($onDisk.Count) on-disk files)."
+
+      # Protects: end-to-end behavior of eng/apply-repo-standard.ps1 -- the
+      # rollout itself. Pester drives the script against a throwaway repo and
+      # asserts the output shape (config, lock, templates, archetype overlay,
+      # standards, generated index, idempotency). Catches integration
+      # regressions PSScriptAnalyzer can't see.
+      - name: Pester smoke (apply-repo-standard.ps1)
+        shell: pwsh
+        run: |
+          Install-Module Pester -Force -SkipPublisherCheck `
+            -Scope CurrentUser -MinimumVersion 5.0.0 -ErrorAction Stop
+          Import-Module Pester
+          $cfg = New-PesterConfiguration
+          $cfg.Run.Path     = 'eng/tests'
+          $cfg.Output.Verbosity = 'Detailed'
+          $cfg.Run.Exit     = $true
+          Invoke-Pester -Configuration $cfg
