@@ -1,0 +1,97 @@
+# Reusable release workflow for archetype B (library / NuGet). Adopted
+# repos call this from a thin stub on `v*.*.*` tag push, supplying the
+# owner used by the GitHub Packages NuGet feed URL. Produces .nupkg +
+# pushes to GitHub Packages + GitHub Release.
+# Source of truth: shared/standards/CI.md -> "Release workflow -- archetype B".
+
+name: release-archetype-b (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      owner:
+        description: 'GitHub owner used in the Packages feed URL (https://nuget.pkg.github.com/<owner>/index.json)'
+        required: true
+        type: string
+      tag:
+        description: 'Override tag for workflow_dispatch (e.g. v1.0.0). Empty on tag-push runs.'
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  release:
+    name: Release ${{ github.ref_name }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Determine version
+        id: version
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF_NAME" =~ ^v[0-9] ]]; then
+            tag="$GITHUB_REF_NAME"
+          else
+            tag="${{ inputs.tag }}"
+          fi
+          version="${tag#v}"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Pack
+        run: |
+          dotnet pack \
+            --configuration Release \
+            --no-restore \
+            -p:Version=${{ steps.version.outputs.version }} \
+            -o packages
+
+      - name: Push to GitHub Packages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OWNER: ${{ inputs.owner }}
+        run: |
+          dotnet nuget push "packages/*.nupkg" \
+            --source "https://nuget.pkg.github.com/${OWNER}/index.json" \
+            --api-key "$GITHUB_TOKEN" \
+            --skip-duplicate
+
+      - name: Extract changelog entry
+        id: changelog
+        shell: bash
+        run: |
+          version="${{ steps.version.outputs.version }}"
+          if grep -q "^## \[$version\]" CHANGELOG.md; then
+            awk -v v="$version" '
+              $0 ~ "^## \\[" v "\\]" { capture=1; next }
+              capture && /^## \[/ { exit }
+              capture { print }
+            ' CHANGELOG.md > release-notes.md
+          else
+            echo "Release $version" > release-notes.md
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          body_path: release-notes.md
+          files: |
+            packages/*.nupkg
+            packages/*.snupkg
