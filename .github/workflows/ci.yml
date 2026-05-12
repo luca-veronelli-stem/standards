@@ -38,3 +38,53 @@ jobs:
             exit 1
           }
           Write-Host 'PSScriptAnalyzer: clean.'
+
+      # Protects: every adopted repo's first build after a bump. Catches
+      # malformed templates (Directory.Build.props, workflow YAMLs,
+      # global.json, etc.) here, before they propagate. Placeholders are
+      # substituted with safe dummies so the validator sees what an adopted
+      # repo would actually receive.
+      - name: Templates parse
+        shell: pwsh
+        run: |
+          Install-Module powershell-yaml -Force -Scope CurrentUser -ErrorAction Stop
+          Import-Module powershell-yaml
+
+          $placeholders = @{
+            '{{App}}'             = 'TestApp'
+            '{{Repo}}'            = 'test-repo'
+            '{{Archetype}}'       = 'A'
+            '{{Owner}}'           = 'test-owner'
+            '{{LucaUser}}'        = 'test-luca'
+            '{{StandardVersion}}' = 'v0.0.0'
+            '{{Author}}'          = 'Test Author'
+            '{{Description}}'     = 'test description'
+            '{{Year}}'            = '2026'
+          }
+          function Expand-Placeholder {
+            param([string]$Text)
+            foreach ($k in $placeholders.Keys) { $Text = $Text.Replace($k, $placeholders[$k]) }
+            return $Text
+          }
+
+          $failed = $false
+          $files  = Get-ChildItem -Path shared/templates -Recurse -File `
+            -Include *.props, *.json, *.yml, *.yaml
+          foreach ($f in $files) {
+            $rel     = $f.FullName.Substring((Resolve-Path .).Path.Length + 1).Replace('\','/')
+            $content = Expand-Placeholder -Text ([System.IO.File]::ReadAllText($f.FullName))
+            try {
+              switch ($f.Extension.ToLowerInvariant()) {
+                '.props' { [void][xml]$content }
+                '.json'  { [void](ConvertFrom-Json -InputObject $content -ErrorAction Stop) }
+                '.yml'   { [void](ConvertFrom-Yaml -Yaml $content) }
+                '.yaml'  { [void](ConvertFrom-Yaml -Yaml $content) }
+              }
+              Write-Host "ok: $rel"
+            } catch {
+              Write-Host "::error file=$rel::$($_.Exception.Message)"
+              $failed = $true
+            }
+          }
+          if ($failed) { exit 1 }
+          Write-Host "templates parse: clean ($($files.Count) files)."
