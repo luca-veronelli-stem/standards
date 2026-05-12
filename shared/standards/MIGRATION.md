@@ -44,6 +44,24 @@ Per-repo adoption PR (`chore: bump standards to v1.2.0`):
 5. Update `state/repos.md` to reflect the bump.
 6. Single-commit PR.
 
+## Rollout phase for v1.4.0 — reusable workflows
+
+`v1.4.0` migrates the four shipped workflow templates (`.github/workflows/ci.yml`, `mirror-bitbucket.yml`, archetype A/B `release.yml`) from full copies to thin caller stubs that delegate the job body via `uses: luca-veronelli-stem/standards/.github/workflows/<workflow>.yml@v1.4.0`. After this bump, GHA-pin updates in the called workflows propagate to adopted repos on the next run — no per-repo PR for routine bumps. It is a minor bump — non-breaking from the consumer side as long as triggers and per-repo inputs survive — so adoption is opt-in per repo and can happen in any order.
+
+Per-repo adoption PR (`chore: bump standards to v1.4.0`):
+
+1. Re-run `eng/apply-repo-standard.ps1 -StandardVersion v1.4.0`. Two outcomes per workflow file:
+   - **Untouched workflow** (matches the previous template hash in `.stem-standard.lock`) — silently overwritten with the stub. Diff shows the ~80 → ~25 line shrink and the new `uses:` pin.
+   - **Hand-customised workflow** (extra steps, pinned action versions different from the template, custom matrix) — the local-edit guard skips it with `(local edit; pass -Force to overwrite)`. Decide deliberately:
+     - If the customisation is something the reusable workflow already handles (or could, via a small input), prefer migrating to the stub: `-Force` to take the template, then re-add only the still-needed customisations on top of the stub. Open an issue here if a missing input would have made the customisation unnecessary.
+     - If the customisation is genuinely repo-specific and not worth pushing upstream (rare), keep the full workflow. Hand-merge any GHA-pin bumps that landed in the reusable. Future bumps continue to skip with the local-edit warning — no further surgery.
+2. Verify CI is green on the bump PR. `dotnet-ci.yml@v1.4.0` is referenced by tag, so it must exist when the PR builds — if the bump lands before the tag is cut, the workflow run fails with `unable to find workflow at <ref>`. The standards-repo cuts the tag immediately after merging the v1.4.0 PR here; sequence the adopted-repo bumps *after* the tag exists.
+3. Bump the per-repo `CLAUDE.md` `**Standard version:**` line to `v1.4.0`.
+4. Update `state/repos.md` to reflect the bump.
+5. Single-commit PR.
+
+After the bump, routine GHA pin updates are handled centrally: the `standards` repo bumps the reusable workflow, cuts a new patch (`v1.4.x`), and adopted repos pick it up on their next bump (or immediately if their stub references `@v1.4` instead of `@v1.4.0` — a per-repo decision; the rollout writes `@v1.4.0`-style exact pins by default). Workflow-shape changes (new triggers, new per-repo inputs) still need a per-repo PR to refresh the stub.
+
 ## What a v1 adoption PR contains
 
 For an archetype A repo:
