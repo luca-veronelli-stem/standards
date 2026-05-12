@@ -16,6 +16,8 @@ Historical entries from `v1.0.0` through `v1.3.3` were written while this repo w
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-05-12
+
 ### Added
 - Reusable GitHub Actions workflows shipped from this repo at `.github/workflows/dotnet-ci.yml`, `mirror-bitbucket.yml`, `release-archetype-a.yml`, `release-archetype-b.yml`. Adopted repos now receive thin caller stubs that delegate the job body via `uses: luca-veronelli-stem/standards/.github/workflows/<workflow>.yml@<StandardVersion>`. Bumping a pin in the called workflow (e.g. `actions/setup-dotnet`, `dorny/test-reporter`) propagates to adopted repos on their next CI run without a per-repo PR — removing the recurring "bump pins in templates, then re-roll every adopted repo" wave that `v1.3.3` typified. The matching standards-repo CI checks (templates-parse, Pester smoke on the rollout) cover the stub shape so a malformed `with:` or a missing input fails here, not in an adopted repo. Closes #58.
 - Standards-repo CI expanded beyond PSScriptAnalyzer to validate what this repo actually ships: every `shared/templates/**/*.{props,json,yml,yaml}` parses (placeholders substituted with safe dummies); every `shared/standards/<NAME>.md` carries the agreed `# Standard: <NAME>` + `> **Stability:** ...` header; the `$standardPurpose` registry in `eng/apply-repo-standard.ps1` cross-references the on-disk standards set in both directions; and a Pester smoke test drives the rollout end-to-end against a throwaway repo (config, lock, templates, archetype overlay, generated index, idempotency). The pre-split JSON-validity and skill-frontmatter checks (now dead weight after `llm-settings` extracted) are dropped. Each step carries a one-line "what this protects" comment. Closes #59.
