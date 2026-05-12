@@ -1,0 +1,47 @@
+# Reusable mirror workflow shipped from luca-veronelli-stem/standards.
+# Adopted repos call this from a thin stub that supplies their Bitbucket
+# slug (e.g. stem-fw/stem-device-manager) and the BITBUCKET_SSH_KEY secret.
+# See shared/standards/CI.md and the dual-remote rule for context.
+
+name: mirror-bitbucket (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      bitbucket-repo:
+        description: 'Bitbucket repository slug, e.g. stem-fw/stem-device-manager'
+        required: true
+        type: string
+    secrets:
+      BITBUCKET_SSH_KEY:
+        description: 'Private SSH key authorised on the Bitbucket-side mirror account'
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  mirror:
+    name: Push main to Bitbucket
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Configure SSH for Bitbucket
+        env:
+          BITBUCKET_SSH_KEY: ${{ secrets.BITBUCKET_SSH_KEY }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$BITBUCKET_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -t rsa,ed25519 bitbucket.org >> ~/.ssh/known_hosts
+
+      - name: Fast-forward bitbucket/main
+        env:
+          BITBUCKET_REPO: ${{ inputs.bitbucket-repo }}
+        run: |
+          git remote add bitbucket "git@bitbucket.org:${BITBUCKET_REPO}.git"
+          git push bitbucket HEAD:refs/heads/main
