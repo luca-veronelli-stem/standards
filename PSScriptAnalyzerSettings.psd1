@@ -1,5 +1,5 @@
 @{
-    # PSScriptAnalyzer settings for the llm-settings repo.
+    # PSScriptAnalyzer settings for the standards repo.
     # Picked up automatically by `Invoke-ScriptAnalyzer -Settings <this file>`
     # in CI, and by editors (VS Code PowerShell extension) that auto-discover
     # this file at the workspace root.
