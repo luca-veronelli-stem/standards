@@ -5,7 +5,7 @@
   </PropertyGroup>
 
   <!--
-    Baseline package versions for the v1 standard. Bump via Dependabot or
+    Baseline package versions for the standard. Bump via Dependabot or
     `dotnet outdated`. Versions below are starting points; adjust per
     repo if a specific consumer needs to pin.
   -->

@@ -95,7 +95,7 @@ Avoid `[<Fact>]` in GUI tests — `[<AvaloniaFact>]` boots the headless app corr
 
 ## No mocking libraries
 
-Per `dotnet.md`: write **manual fakes** under `tests/<App>.Tests/Fakes/`. A fake is a normal class/module implementing the port. No Moq, NSubstitute, or FakeItEasy.
+Write **manual fakes** under `tests/<App>.Tests/Fakes/`. A fake is a normal class/module implementing the port. No Moq, NSubstitute, or FakeItEasy.
 
 ```fsharp
 module Fakes

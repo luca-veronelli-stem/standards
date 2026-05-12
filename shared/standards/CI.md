@@ -93,11 +93,11 @@ Triggered on `v*.*.*` tag push. Steps:
 
 ## Release workflow — archetype C
 
-`llm-settings` itself. No release workflow — versioning is the git tag (see CHANGELOG.md at this repo's root). Tag is created manually after merging the relevant PR.
+`standards` (this repo). No release workflow — versioning is the git tag (see CHANGELOG.md at this repo's root). Tag is created manually after merging the relevant PR. The agent-config sibling `llm-settings` follows the same archetype but is unversioned (HEAD-only).
 
 ## Mirror workflow
 
-Defined in `dual-remote.md` rule. Same content; ships unchanged via the rollout script. Skip for `llm-settings` itself (GitHub-only).
+Defined in `dual-remote.md` rule. Same content; ships unchanged via the rollout script. Skip for personal-account repos with no Bitbucket mirror (e.g. `standards`, `llm-settings`).
 
 ## Bitbucket Pipelines stub
 

@@ -1,4 +1,0 @@
-- Be concise — avoid over-explaining or elaborating unnecessarily
-- When the user signals they have enough information, stop
-- Low profile in PRs and commits — keep commit messages and PR descriptions minimal and factual
-- On context compaction — immediately re-invoke all relevant skills to refresh their rules before continuing work

@@ -5,18 +5,18 @@
 
 ## Where adoption is tracked
 
-- **`<llm-settings>/state/repos.md`** — single source of truth for which repo is on which Standard version.
+- **`<standards>/state/repos.md`** — single source of truth for which repo is on which Standard version.
 - **`<repo>/CLAUDE.md`** — per-repo declaration of `**Standard version:**` and `**Archetype:**`.
 
 When the two disagree, `state/repos.md` is canonical for "what should be"; the per-repo `CLAUDE.md` is canonical for "what is right now".
 
 ## Rollout phases for v1.0.0
 
-The v1 standards landed in the *standards-definition* design session. The rollout order, by repo:
+The standards landed in v1.0.0 — the *standards-definition* design session. The rollout order, by repo:
 
 | Phase | Repo | Why this order |
 | --- | --- | --- |
-| 1 | `llm-settings` itself | Define the standards (this PR). Self-referential — archetype C. |
+| 1 | `llm-settings` itself (now `standards`) | Define the standards (this PR). Self-referential — archetype C. |
 | 2 | `stem-device-manager` | Most active repo; already has the most CI/standards scaffolding. Lowest delta. |
 | 3 | `stem-communication` | Library archetype; rename + sub-package split happens here. Validates archetype B. |
 | 4 | `stem-button-panel-tester` | Small, low-risk archetype A. Pilot for the rollout script. |
@@ -24,7 +24,7 @@ The v1 standards landed in the *standards-definition* design session. The rollou
 | 6 | `stem-production-tracker` | Larger archetype A; benefits from the script being battle-tested. |
 | 7 | `stem-dictionaries-manager` | Archetype A with a class library inside. Last because it's the least typical. |
 
-Each phase opens a single PR per repo titled `chore: adopt llm-settings v1.0.0 standards`.
+Each phase opens a single PR per repo titled `chore: adopt v1.0.0 standards`.
 
 ## Rollout phase for v1.2.0 — docs standards
 
@@ -71,13 +71,13 @@ Append a section per repo as adoption progresses:
 - [ ] Phase 4: Avalonia migration of `<App>.GUI.Windows` → `<App>.GUI`.
 ```
 
-The migration log is **inside this standard** in `llm-settings`, so a single file shows the cross-repo state. The repo-side `CHANGELOG.md` records the structural change as a separate entry.
+The migration log is **inside this standard** in this repo, so a single file shows the cross-repo state. The repo-side `CHANGELOG.md` records the structural change as a separate entry.
 
-## Major version bumps in `llm-settings`
+## Major version bumps in `standards`
 
-When `llm-settings` releases a major (`v2.0.0`), the procedure is:
+When `standards` releases a major (`v2.0.0`), the procedure is:
 
-1. The `[Unreleased]` section in `llm-settings/CHANGELOG.md` lists every breaking change.
+1. The `[Unreleased]` section in this repo's `CHANGELOG.md` lists every breaking change.
 2. This standard's "Per-repo migration log" gets a new column for the v2 phases.
 3. A repo can choose to **pin** at v1.x (do nothing) or **migrate** (open a PR). Pinning is fine; it just means the repo's `**Standard version:**` stays at `v1.x.y` and Claude treats that as the contract.
 4. `state/repos.md` shows pinned vs migrated repos at a glance.
@@ -98,23 +98,23 @@ Patches (`v1.0.1`) bump the same way but usually produce zero or near-zero diff 
 
 ## Rollback
 
-If a bump regresses a repo, revert the PR and bump `**Standard version:**` back. `state/repos.md` shows the lag until fixed forward in `llm-settings`.
+If a bump regresses a repo, revert the PR and bump `**Standard version:**` back. `state/repos.md` shows the lag until fixed forward in `standards`.
 
 ## Keeping the templates current
 
 Two ecosystems pin versions inside `shared/templates/`. Drift on either side replays as a wave of Dependabot PRs against every newly-adopted repo, so they're worth catching here first.
 
-- **GitHub Actions.** `llm-settings/.github/dependabot.yml` watches the repo's own workflows weekly and groups minor/patch bumps. **When merging a GHA Dependabot PR, mirror the same bump into the matching template files** — `shared/templates/.github/workflows/*.yml` and `shared/templates/archetypes/{A,B}/.github/workflows/release.yml` — in the same PR or a follow-up. Without that mirror the templates go stale, and consumer repos rebump on their next standards adoption.
-- **NuGet.** `llm-settings` has no `.csproj`/`.fsproj`, so Dependabot can't watch `shared/templates/Directory.Packages.props`. Refresh it manually before each release cut: bootstrap a throwaway repo, run `dotnet outdated`, fold any patch/minor bumps back into the template, re-run the rollout to pick them up. Skip preview tags unless intentional.
+- **GitHub Actions.** This repo's `.github/dependabot.yml` watches the repo's own workflows weekly and groups minor/patch bumps. **When merging a GHA Dependabot PR, mirror the same bump into the matching template files** — `shared/templates/.github/workflows/*.yml` and `shared/templates/archetypes/{A,B}/.github/workflows/release.yml` — in the same PR or a follow-up. Without that mirror the templates go stale, and consumer repos rebump on their next standards adoption.
+- **NuGet.** This repo has no `.csproj`/`.fsproj`, so Dependabot can't watch `shared/templates/Directory.Packages.props`. Refresh it manually before each release cut: bootstrap a throwaway repo, run `dotnet outdated`, fold any patch/minor bumps back into the template, re-run the rollout to pick them up. Skip preview tags unless intentional.
 
 ## Anti-patterns
 
 - **Squashing language migration into the structural PR.** Two reviews, two PRs.
-- **Editing the inline copies in `docs/Standards/` directly.** They're regenerated by the script — edits will be overwritten. Edit upstream in `llm-settings`.
+- **Editing the inline copies in `docs/Standards/` directly.** They're regenerated by the script — edits will be overwritten. Edit upstream in this repo's `shared/standards/`.
 - **Skipping the version stamp.** A repo without `**Standard version:**` in `CLAUDE.md` is unaudited; treat as "no standard adopted".
 - **Hardcoding the Standard version in `.specify/memory/constitution.md`** (or any other speckit artefact). The rollout script's ownership ends at `docs/Standards/` + `CLAUDE.md`/`README.md` templates and does not rewrite `.specify/`, so a literal version pinned in the constitution silently goes stale on the next bump. Reference the version indirectly via the `**Standard version:**` line in the repo's top-level `CLAUDE.md` — that line is the contract anchor and the single source of truth.
 
-  ✅ "The repo MUST follow the STEM v1 standards verbatim, at the **Standard version** pinned in `CLAUDE.md`, as inlined under `docs/Standards/`."
+  ✅ "The repo MUST follow the STEM standards verbatim, at the **Standard version** pinned in `CLAUDE.md`, as inlined under `docs/Standards/`."
 
   ❌ "The repo MUST follow STEM v1.2.1 standards verbatim."
 
