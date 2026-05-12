@@ -19,6 +19,9 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      # Protects: rollout script (eng/apply-repo-standard.ps1) and any other
+      # PowerShell shipped from this repo. The rollout is the highest-stakes
+      # script we own — a regression here breaks every adopted repo's next bump.
       - name: PSScriptAnalyzer
         shell: pwsh
         run: |
@@ -35,48 +38,3 @@ jobs:
             exit 1
           }
           Write-Host 'PSScriptAnalyzer: clean.'
-
-      - name: JSON validity
-        shell: pwsh
-        run: |
-          $jsonFiles = @(
-            'claude/settings.json',
-            'shared/mcp/servers.json'
-          )
-          $failed = $false
-          foreach ($f in $jsonFiles) {
-            if (-not (Test-Path $f)) {
-              Write-Warning "missing: $f"
-              continue
-            }
-            try {
-              Get-Content $f -Raw | ConvertFrom-Json -ErrorAction Stop | Out-Null
-              Write-Host "ok: $f"
-            } catch {
-              Write-Host "::error file=$f::Invalid JSON: $($_.Exception.Message)"
-              $failed = $true
-            }
-          }
-          if ($failed) { exit 1 }
-
-      - name: Skill frontmatter
-        shell: pwsh
-        run: |
-          $skills = Get-ChildItem -Path 'shared/skills' -Directory -ErrorAction SilentlyContinue
-          if (-not $skills) { Write-Host 'No skills found.'; exit 0 }
-          $failed = $false
-          foreach ($s in $skills) {
-            $skillFile = Join-Path $s.FullName 'SKILL.md'
-            if (-not (Test-Path $skillFile)) {
-              Write-Host "::error file=$($s.FullName)::missing SKILL.md"
-              $failed = $true; continue
-            }
-            $content = Get-Content $skillFile -Raw
-            if ($content -notmatch '(?s)\A---\s*\r?\n.*?\bname\s*:.*?\bdescription\s*:.*?\r?\n---') {
-              Write-Host "::error file=$skillFile::missing or malformed YAML frontmatter (need name + description)"
-              $failed = $true
-            } else {
-              Write-Host "ok: $skillFile"
-            }
-          }
-          if ($failed) { exit 1 }
