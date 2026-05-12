@@ -5,22 +5,26 @@
 
 ## Workflows shipped per repo
 
-| Workflow | File | Trigger | Job |
-| --- | --- | --- | --- |
-| **CI** | `.github/workflows/ci.yml` | push, PR, manual dispatch, weekly schedule | format check + build + test on `ubuntu-latest` and `windows-latest` |
-| **Mirror to Bitbucket** | `.github/workflows/mirror-bitbucket.yml` | push to `main` | fast-forward `bitbucket/main` |
-| **Release** (archetype A) | `.github/workflows/release.yml` | tag `v*.*.*` | publish self-contained `win-x64` zip + create GitHub Release |
-| **Release** (archetype B) | `.github/workflows/release.yml` | tag `v*.*.*` | `dotnet pack` + publish to GitHub Packages |
+From `v1.4.0`, the workflows the rollout writes into an adopted repo are **caller stubs**: each `.github/workflows/*.yml` in the adopted repo owns only the consumer-side surface (triggers, concurrency, permissions, per-repo inputs) and delegates the job body to a reusable workflow shipped from this `standards` repo via `uses: luca-veronelli-stem/standards/.github/workflows/<workflow>.yml@vX.Y.Z`. The reusable workflows themselves live at `.github/workflows/` *in this repo* and are referenced by tag. Bumping a GHA pin (`actions/setup-dotnet`, `dorny/test-reporter`, etc.) in a reusable workflow propagates to adopted repos on their next run, with no per-repo PR.
 
-Templates live under `shared/templates/.github/workflows/` and are copied into each repo by the rollout script (see REPO_STRUCTURE).
+| Workflow | Stub (in adopted repo) | Reusable body (this repo) | Trigger |
+| --- | --- | --- | --- |
+| **CI** | `.github/workflows/ci.yml` | `.github/workflows/dotnet-ci.yml` | push, PR, manual dispatch, weekly schedule |
+| **Mirror to Bitbucket** | `.github/workflows/mirror-bitbucket.yml` | `.github/workflows/mirror-bitbucket.yml` | push to `main` |
+| **Release** (archetype A) | `.github/workflows/release.yml` | `.github/workflows/release-archetype-a.yml` | tag `v*.*.*` |
+| **Release** (archetype B) | `.github/workflows/release.yml` | `.github/workflows/release-archetype-b.yml` | tag `v*.*.*` |
+
+The stubs live under `shared/templates/.github/workflows/` (common: `ci.yml`, `mirror-bitbucket.yml`) and `shared/templates/archetypes/{A,B}/.github/workflows/release.yml` (archetype overlays) and are copied into each repo by the rollout script (see REPO_STRUCTURE). The rollout substitutes `{{StandardVersion}}` into the `uses:` pin at bump time, so each adopted repo references the exact tag it is pinned to. Migrating an existing repo across this shape change is covered in MIGRATION.md → "Rollout phase for v1.4.0".
 
 ## ci.yml — invariants
 
-- **Triggers:** `push` to any branch, `pull_request` against `main`, `workflow_dispatch`, weekly `schedule` cron (catches dependency drift on idle repos).
-- **Concurrency:** `concurrency.group = ci-${{ github.ref }}`, `cancel-in-progress: true` — newer pushes cancel older runs on the same branch.
-- **Matrix:** `os: [ubuntu-latest, windows-latest]`. The Linux leg enforces portability; the Windows leg validates Windows-only drivers and any legacy `GUI.Windows` projects.
-- **Caching:** `~/.nuget/packages/` keyed on `Directory.Packages.props`; Lean `~/.elan/` keyed on `lean-toolchain` (only when `specs/` exists).
-- **Steps:** checkout → setup-dotnet (from `global.json`) → restore → format check → build (Release) → test (Release).
+Triggers, concurrency, and permissions live in the per-repo stub (`.github/workflows/ci.yml`); the matrix, caching, and steps live in the reusable body (`luca-veronelli-stem/standards/.github/workflows/dotnet-ci.yml`):
+
+- **Triggers (stub):** `push` to `main`, `pull_request` against `main`, `workflow_dispatch`, weekly `schedule` cron (catches dependency drift on idle repos).
+- **Concurrency (stub):** `concurrency.group = ci-${{ github.ref }}`, `cancel-in-progress: true` — newer pushes cancel older runs on the same branch.
+- **Matrix (reusable):** `os: [ubuntu-latest, windows-latest]`. The Linux leg enforces portability; the Windows leg validates Windows-only drivers and any legacy `GUI.Windows` projects.
+- **Caching (reusable):** `~/.nuget/packages/` keyed on `Directory.Packages.props`; Lean `~/.elan/` keyed on `lean-toolchain` (only when `specs/` exists).
+- **Steps (reusable):** checkout → setup-dotnet (from `global.json`) → restore → format check → build (Release) → test (Release).
 
 ## Format check is a hard gate (whitespace-only in CI)
 
@@ -97,7 +101,7 @@ Triggered on `v*.*.*` tag push. Steps:
 
 ## Mirror workflow
 
-Defined in `dual-remote.md` rule. Same content; ships unchanged via the rollout script. Skip for personal-account repos with no Bitbucket mirror (e.g. `standards`, `llm-settings`).
+Defined in `dual-remote.md` rule. From v1.4.0 the rollout writes a stub that calls `luca-veronelli-stem/standards/.github/workflows/mirror-bitbucket.yml@<version>` and supplies the per-repo Bitbucket slug as input plus the `BITBUCKET_SSH_KEY` secret. Skip for personal-account repos with no Bitbucket mirror (e.g. `standards`, `llm-settings`).
 
 ## Bitbucket Pipelines stub
 
