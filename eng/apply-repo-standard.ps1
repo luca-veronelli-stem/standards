@@ -214,7 +214,7 @@ $placeholders = @{
     '{{Year}}'            = $cfg.year
 }
 
-$noSubstituteExtensions = @('.png','.jpg','.jpeg','.gif','.ico','.icns','.dll','.exe','.pdb','.zip','.7z','.tar','.gz')
+$noSubstituteExtensions = @('.png','.jpg','.jpeg','.gif','.ico','.icns','.dll','.exe','.pdb','.zip','.7z','.tar','.gz','.ttf','.otf','.woff','.woff2')
 $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 
 function Expand-Placeholder {
@@ -348,6 +348,11 @@ function Invoke-TemplateFile {
     } else {
         $relative
     }
+    # Placeholders in path segments (e.g. archetypes/A/src/{{App}}.GUI/...)
+    # are substituted so per-app destinations land at the right path. The
+    # source tree carries literal {{App}} dir names; the dest tree carries
+    # the configured app name. Same substitution table as file contents.
+    $destRelative = Expand-Placeholder -Text $destRelative
     if ($DestRelativePrefix) {
         $destRelative = (Join-Path $DestRelativePrefix $destRelative)
     }

@@ -100,6 +100,23 @@ Describe 'apply-repo-standard.ps1 (smoke)' {
         $index | Should -Match '\| \[REPO_STRUCTURE\.md\]'
     }
 
+    It 'copies Poppins fonts into the per-app GUI project (path placeholders + binary copy)' {
+        # Exercises two rollout behaviours together:
+        #   - path-segment placeholder substitution (`{{App}}` -> SmokeApp in
+        #     archetypes/A/src/{{App}}.GUI/...)
+        #   - binary file handling (TTF must not be UTF-8/LF-normalized).
+        $fontsDir = Join-Path $script:target 'src/SmokeApp.GUI/Resources/fonts'
+        $fontsDir | Should -Exist
+        foreach ($weight in @('Light','Regular','Medium','SemiBold','Bold')) {
+            $ttf = Join-Path $fontsDir "Poppins-$weight.ttf"
+            $ttf | Should -Exist
+            $magic = [System.IO.File]::ReadAllBytes($ttf)[0..3]
+            ($magic[0] -eq 0 -and $magic[1] -eq 1 -and $magic[2] -eq 0 -and $magic[3] -eq 0) `
+                | Should -BeTrue -Because 'binary copy must preserve TrueType magic (00 01 00 00)'
+        }
+        Join-Path $fontsDir 'OFL.txt' | Should -Exist
+    }
+
     It 'is idempotent on re-run with the same parameters' {
         & $script:rolloutPs1 `
             -RepoPath        $script:target `
