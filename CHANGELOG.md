@@ -16,6 +16,9 @@ Historical entries from `v1.0.0` through `v1.3.3` were written while this repo w
 
 ## [Unreleased]
 
+### Added
+- New `GUI` standard at `shared/standards/GUI.md` codifying the Avalonia + FuncUI + Elmish-MVU dialect for archetype A apps. Pins the `<App>.GUI/` project layout (top-level `Model`/`Update`/`View`/`Strings`/`App`/`Program` + `Pages/`, `Components/`, `Composition/`, `Resources/` subfolders), the manual-DI composition-root pattern (`Composition/Bindings.fs`, no `Microsoft.Extensions.DependencyInjection` container inside the GUI), the pure-`Update` invariant with effects expressed as `Cmd<Msg>`, cancellation-aware long-running operations per [`CANCELLATION.md`](./shared/standards/CANCELLATION.md), and a three-layer test posture (FsCheck on `Update`, Avalonia.Headless smoke on `View`, wiring tests on `Bindings.buildDeps`). Includes the legacy `<App>.GUI.Windows` (WinForms/WPF) carve-out, matching the pattern [`LANGUAGE.md`](./shared/standards/LANGUAGE.md) already uses, so in-flight Avalonia migrations remain a documented state rather than a deviation. Bumps the standards count from sixteen to seventeen.
+
 ### Changed
 - Repository flipped from private to public on GitHub. `MIGRATION.md`'s "Rollout phase for v1.4.0" no longer documents an "Actions access" prerequisite — public repos resolve cross-repo reusable-workflow `uses:` references without the `access_level=user` toggle. Adopter-facing wording stripped of "(private)" / "(private repo)" suffixes in `shared/templates/CLAUDE.md.template`, `eng/apply-repo-standard.ps1` (generated `docs/Standards/README.md` header), and `state/repos.md`. Inline-copy rationale in `REPO_STRUCTURE.md` updated: hyperlink-to-standards now resolves for Bitbucket-only colleagues, but inline copies still win on the grounds that matter (in-tree greppability, no browser round-trip, pinned to Standard version). No standard contracts change.
 

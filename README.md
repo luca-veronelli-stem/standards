@@ -4,10 +4,11 @@ STEM cross-repo engineering standards: how a STEM .NET repo is shaped, what lang
 
 ## What's here
 
-Sixteen versioned standards plus the toolchain to apply them to a work repo.
+Seventeen versioned standards plus the toolchain to apply them to a work repo.
 
 - **Eight structural standards** (`v1.0.0`): `REPO_STRUCTURE`, `LANGUAGE`, `MODULE_SEPARATION`, `PORTABILITY`, `BUILD_CONFIG`, `TESTING`, `CI`, `MIGRATION`. Govern repo shape, build configuration, and the rollout process.
 - **Eight content standards** (`v1.2.0`): `CANCELLATION`, `COMMENTS`, `CONFIGURATION`, `ERROR_HANDLING`, `EVENTARGS`, `LOGGING`, `THREAD_SAFETY`, `VISIBILITY`. Govern code-level idiom within adopted repos.
+- **One GUI standard** (`v1.5.0`): `GUI`. Avalonia + FuncUI + Elmish-MVU shape for archetype A apps, with a legacy WinForms/WPF carve-out.
 
 Each standard is a single markdown file under [`shared/standards/`](./shared/standards/). Templates that the rollout copies into adopted repos live under [`shared/templates/`](./shared/templates/). The rollout script is [`eng/apply-repo-standard.ps1`](./eng/apply-repo-standard.ps1). Adoption is tracked in [`state/repos.md`](./state/repos.md).
 
@@ -15,7 +16,7 @@ Each standard is a single markdown file under [`shared/standards/`](./shared/sta
 
 ```
 shared/
-  standards/      sixteen standards as markdown files
+  standards/      seventeen standards as markdown files
   templates/      Directory.Build.props, Directory.Packages.props,
                   .github/workflows/, archetype-specific overlays, doc templates
 eng/
@@ -56,6 +57,7 @@ See [`shared/standards/REPO_STRUCTURE.md`](./shared/standards/REPO_STRUCTURE.md)
 | `COMMENTS` | v1.2 | XML doc coverage by visibility; English by default; `<inheritdoc/>` |
 | `ERROR_HANDLING` | v1.2 | Try-pattern / Result type / exception decision tree; BCL throw helpers |
 | `CONFIGURATION` | v1.2 | Constants → Configuration → Service pattern; library + app delivery mechanisms |
+| `GUI` | v1.5 | Avalonia + FuncUI + Elmish-MVU; `<App>.GUI/` layout; composition root; legacy WinForms/WPF carve-out |
 
 ## Adopting these standards in a repo
 

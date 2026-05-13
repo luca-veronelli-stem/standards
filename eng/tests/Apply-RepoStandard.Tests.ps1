@@ -83,12 +83,12 @@ Describe 'apply-repo-standard.ps1 (smoke)' {
         $release | Should -Not -Match '\{\{Repo\}\}'
     }
 
-    It 'copies all 16 standards under docs/Standards/' {
+    It 'copies all 17 standards under docs/Standards/' {
         $docs = Join-Path $script:target 'docs/Standards'
         $docs | Should -Exist
         (Get-ChildItem -Path $docs -Filter *.md -File `
             | Where-Object { $_.Name -ne 'README.md' }).Count `
-            | Should -Be 16
+            | Should -Be 17
         Join-Path $docs 'REPO_STRUCTURE.md' | Should -Exist
     }
 
