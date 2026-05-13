@@ -14,6 +14,16 @@
     <!-- Source generators / analyzers -->
     <PackageVersion Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" Version="3.3.4" />
 
+    <!--
+      F# runtime — required entry under Central Package Management.
+      F# projects must `<PackageReference Include="FSharp.Core" />` so the
+      runtime flows into bin/ for any consumer (notably xunit's reflection
+      discoverer in test projects); without this PackageVersion, CPM rejects
+      the reference and discovery fails with `Could not load file or
+      assembly 'FSharp.Core'`.
+    -->
+    <PackageVersion Include="FSharp.Core" Version="10.1.201" />
+
     <!-- Cross-platform replacements (PORTABILITY standard) -->
     <PackageVersion Include="ClosedXML" Version="0.105.0" />
     <PackageVersion Include="SkiaSharp" Version="3.119.0" />

@@ -16,6 +16,9 @@ Historical entries from `v1.0.0` through `v1.3.3` were written while this repo w
 
 ## [Unreleased]
 
+### Fixed
+- `shared/templates/Directory.Packages.props`: restored the `FSharp.Core` `PackageVersion` entry that was dropped in v1.5.0 (last present at `10.1.201` in v1.3.2). Under Central Package Management, an F# project must `<PackageReference Include="FSharp.Core" />` for the runtime to flow into its bin output — and that reference is rejected by CPM without a matching `PackageVersion`. Result on v1.5.0 greenfields: F# test projects that reference an F# library produce a bin without `FSharp.Core.dll`, and xunit's reflection-based discoverer fails with `Could not load file or assembly 'FSharp.Core, Version=10.1.0.0, ...'` — surface symptom is the opaque `No test is available in ...dll. Make sure that test discoverer & executors are registered`. The fix lands the entry in a dedicated `<!-- F# runtime -->` block between the analyzers and the cross-platform-replacements blocks, with a comment explaining why it must stay. Version `10.1.201` matches the v1.3.2 baseline; Dependabot can bump it from here. Surfaced while bootstrapping `button-panel-tester` as the first v1.5.0 adopter. Closes #74.
+
 ## [1.5.0] - 2026-05-13
 
 ### Added
