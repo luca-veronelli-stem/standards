@@ -117,6 +117,35 @@ Describe 'apply-repo-standard.ps1 (smoke)' {
         Join-Path $fontsDir 'OFL.txt' | Should -Exist
     }
 
+    It 'lays down the archetype A greenfield scaffold (slnx + Core + Tests)' {
+        # The scaffold is what makes the bootstrap PR green on CI without
+        # a hand-rolled follow-up: rollout emits Core + Tests + .slnx, dotnet-ci
+        # finds them, build/restore/test succeed.
+        $slnx = Get-Content (Join-Path $script:target 'Stem.SmokeApp.slnx') -Raw
+        $slnx | Should -Match 'src/SmokeApp\.Core/SmokeApp\.Core\.fsproj'
+        $slnx | Should -Match 'tests/SmokeApp\.Tests/SmokeApp\.Tests\.fsproj'
+        $slnx | Should -Not -Match '\{\{App\}\}'
+
+        $coreProj = Get-Content (Join-Path $script:target 'src/SmokeApp.Core/SmokeApp.Core.fsproj') -Raw
+        $coreProj | Should -Match '<RootNamespace>Stem\.SmokeApp\.Core</RootNamespace>'
+        $coreProj | Should -Match '<PackageReference Include="FSharp\.Core" />'
+        $coreProj | Should -Not -Match '\{\{App\}\}'
+
+        $coreFs = Get-Content (Join-Path $script:target 'src/SmokeApp.Core/Placeholder.fs') -Raw
+        $coreFs | Should -Match 'module Stem\.SmokeApp\.Core\.Placeholder'
+
+        $testsProj = Get-Content (Join-Path $script:target 'tests/SmokeApp.Tests/SmokeApp.Tests.fsproj') -Raw
+        $testsProj | Should -Match '<RootNamespace>Stem\.SmokeApp\.Tests</RootNamespace>'
+        $testsProj | Should -Match '<GenerateProgramFile>true</GenerateProgramFile>' `
+            -Because 'F#-on-xunit test discovery on .NET 10 needs the SDK-generated Program.fs'
+        $testsProj | Should -Match '<ProjectReference Include="\.\./\.\./src/SmokeApp\.Core/SmokeApp\.Core\.fsproj" />'
+        $testsProj | Should -Not -Match '\{\{App\}\}'
+
+        $testsFs = Get-Content (Join-Path $script:target 'tests/SmokeApp.Tests/PlaceholderTests.fs') -Raw
+        $testsFs | Should -Match 'module Stem\.SmokeApp\.Tests\.PlaceholderTests'
+        $testsFs | Should -Match 'open Stem\.SmokeApp\.Core'
+    }
+
     It 'is idempotent on re-run with the same parameters' {
         & $script:rolloutPs1 `
             -RepoPath        $script:target `
@@ -128,5 +157,76 @@ Describe 'apply-repo-standard.ps1 (smoke)' {
             -StandardVersion 'v0.0.0-smoke' `
             -Description     'Smoke test fixture' 6>&1 | Out-Null
         $LASTEXITCODE | Should -Be 0
+    }
+}
+
+Describe 'apply-repo-standard.ps1 (scaffold preservation)' {
+
+    # The greenfield scaffold is seed code: once the adopter starts editing
+    # Placeholder.fs (or deletes it entirely), the rollout must not revert
+    # or recreate it. Bootstrap-only protection enforces this. Separate
+    # Describe so the fixture is independent of the main smoke run.
+    BeforeAll {
+        $script:rolloutPs1 = Resolve-Path (Join-Path $PSScriptRoot '..\apply-repo-standard.ps1')
+
+        $script:preserveTarget = Join-Path ([System.IO.Path]::GetTempPath()) `
+            "stem-rollout-preserve-$([Guid]::NewGuid().ToString('N').Substring(0,8))"
+        New-Item -ItemType Directory -Path $script:preserveTarget -Force | Out-Null
+
+        Push-Location $script:preserveTarget
+        try {
+            git init --quiet 2>&1 | Out-Null
+        } finally {
+            Pop-Location
+        }
+
+        # First run: scaffold lands.
+        & $script:rolloutPs1 `
+            -RepoPath        $script:preserveTarget `
+            -App             'PreserveApp' `
+            -Repo            'preserve-repo' `
+            -Archetype       'A' `
+            -Owner           'preserve-owner' `
+            -LucaUser        'preserve-luca' `
+            -StandardVersion 'v0.0.0-smoke' `
+            -Description     'Preservation fixture' 6>&1 | Out-Null
+
+        # Adopter writes real code over Placeholder.fs, and deletes the test
+        # placeholder entirely after wiring up their own first test module.
+        $script:realCore = "module Stem.PreserveApp.Core.RealModule`n`nlet value = 42`n"
+        Set-Content -Path (Join-Path $script:preserveTarget 'src/PreserveApp.Core/Placeholder.fs') `
+            -Value $script:realCore -NoNewline
+        Remove-Item (Join-Path $script:preserveTarget 'tests/PreserveApp.Tests/PlaceholderTests.fs') -Force
+
+        # Second run.
+        & $script:rolloutPs1 `
+            -RepoPath        $script:preserveTarget `
+            -App             'PreserveApp' `
+            -Repo            'preserve-repo' `
+            -Archetype       'A' `
+            -Owner           'preserve-owner' `
+            -LucaUser        'preserve-luca' `
+            -StandardVersion 'v0.0.0-smoke' `
+            -Description     'Preservation fixture' 6>&1 | Out-Null
+        $script:preserveExit = $LASTEXITCODE
+    }
+
+    AfterAll {
+        if ($script:preserveTarget -and (Test-Path $script:preserveTarget)) {
+            Remove-Item $script:preserveTarget -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    It 're-run exits zero' {
+        $script:preserveExit | Should -Be 0
+    }
+
+    It 'does not clobber adopter-edited Placeholder.fs' {
+        $disk = Get-Content (Join-Path $script:preserveTarget 'src/PreserveApp.Core/Placeholder.fs') -Raw
+        $disk | Should -Be $script:realCore
+    }
+
+    It 'does not recreate adopter-deleted PlaceholderTests.fs' {
+        Join-Path $script:preserveTarget 'tests/PreserveApp.Tests/PlaceholderTests.fs' | Should -Not -Exist
     }
 }
