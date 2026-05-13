@@ -193,10 +193,28 @@ $repoIsBootstrapped = $null -ne $existing
 $hasLockBaseline    = $null -ne $lock
 
 # Files in the work repo that are written only on bootstrap, never on re-run.
+# Entries containing placeholders (e.g. {{App}}) are expanded after $placeholders
+# is built; see $bootstrapOnlyFilesExpanded below.
+#
 # CHANGELOG.md grows over time and must not be clobbered by template churn.
 # LICENSE is per-repo customisation (project name, year) that the seed
 # template provides at bootstrap; subsequent edits stay with the repo.
-$bootstrapOnlyFiles = @('CHANGELOG.md', 'LICENSE')
+#
+# The archetype A greenfield scaffold (slnx + Core + Tests) is seed code:
+# adopters edit Placeholder.fs into real code or delete it entirely once
+# they have a real module. Bootstrap-only protection prevents the rollout
+# from re-creating the placeholders after intentional deletion. Local edits
+# to these files are also protected by the standard hash/lock check, so
+# both deletion and modification survive a future bump.
+$bootstrapOnlyFiles = @(
+    'CHANGELOG.md',
+    'LICENSE',
+    'Stem.{{App}}.slnx',
+    'src/{{App}}.Core/{{App}}.Core.fsproj',
+    'src/{{App}}.Core/Placeholder.fs',
+    'tests/{{App}}.Tests/{{App}}.Tests.fsproj',
+    'tests/{{App}}.Tests/PlaceholderTests.fs'
+)
 
 # --------------------------------------------------------------------------
 # Substitution
@@ -224,6 +242,11 @@ function Expand-Placeholder {
     }
     return $Text
 }
+
+# Bootstrap-only patterns expanded to per-app paths. Done once after
+# $placeholders + Expand-Placeholder are in scope so the per-file check is
+# a flat list lookup.
+$bootstrapOnlyFilesExpanded = @($bootstrapOnlyFiles | ForEach-Object { Expand-Placeholder -Text $_ })
 
 # Normalize line endings to LF before hashing, so a target file rewritten as
 # CRLF by core.autocrlf=true still hashes equal to its LF source.
@@ -364,7 +387,7 @@ function Invoke-TemplateFile {
     $isBinary = $noSubstituteExtensions -contains $ext
 
     # -- Policy: bootstrap-only files are never overwritten on re-run.
-    if ($repoIsBootstrapped -and $bootstrapOnlyFiles -contains $destRelativeFwd) {
+    if ($repoIsBootstrapped -and $bootstrapOnlyFilesExpanded -contains $destRelativeFwd) {
         $skippedBootstrap.Add("[$Tag] $destRelativeFwd")
         return
     }
