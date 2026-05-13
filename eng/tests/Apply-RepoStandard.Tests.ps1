@@ -83,12 +83,20 @@ Describe 'apply-repo-standard.ps1 (smoke)' {
         $release | Should -Not -Match '\{\{Repo\}\}'
     }
 
-    It 'copies all 19 standards under docs/Standards/' {
+    It 'copies every standard under docs/Standards/' {
+        # Expected count is derived from `shared/standards/*.md` (the canonical
+        # source) rather than hardcoded, so adding a standard is a one-file
+        # change (the .md file itself + its registry/README/CHANGELOG row).
+        # The assertion still has teeth: if the rollout copies the wrong
+        # number, the comparison fails.
         $docs = Join-Path $script:target 'docs/Standards'
         $docs | Should -Exist
+        $sharedStandards = Resolve-Path (Join-Path $PSScriptRoot '../../shared/standards')
+        $expectedCount = (Get-ChildItem -Path $sharedStandards -Filter *.md -File).Count
+        $expectedCount | Should -BeGreaterThan 0 -Because 'shared/standards/ must contain at least one .md'
         (Get-ChildItem -Path $docs -Filter *.md -File `
             | Where-Object { $_.Name -ne 'README.md' }).Count `
-            | Should -Be 19
+            | Should -Be $expectedCount
         Join-Path $docs 'REPO_STRUCTURE.md' | Should -Exist
     }
 
