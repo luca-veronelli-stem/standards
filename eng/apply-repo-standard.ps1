@@ -532,6 +532,7 @@ $standardPurpose = [ordered]@{
     'ERROR_HANDLING'     = 'Try-pattern / Result type / exception decision tree.'
     'CONFIGURATION'      = 'Constants -> Configuration -> Service pattern; library + app delivery.'
     'GUI'                = 'Avalonia + FuncUI + Elmish-MVU; <App>.GUI/ layout; composition root; legacy WinForms/WPF carve-out.'
+    'DESIGN_SYSTEM'      = 'Fluent theme + dark default; 4-pt spacing scale; Fluent System Icons; F# strings module for i18n; toast/banner/inline/modal error surfaces.'
 }
 
 $indexLines = New-Object System.Collections.Generic.List[string]
