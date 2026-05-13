@@ -32,7 +32,8 @@ src/
 └── {{App}}.GUI/                 Avalonia + FuncUI
 tests/
 └── {{App}}.Tests/               xUnit + FsCheck + Avalonia.Headless
-specs/                           Lean 4 formal specs
+specs/                           Spec-Driven Development (spec-kit) feature folders (optional)
+lean/                            Lean 4 workspace (optional — lakefile.lean + lean-toolchain)
 docs/                            documentation (Standards/ tracked here)
 eng/                             build / release scripts
 ```
