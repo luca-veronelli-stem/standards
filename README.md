@@ -8,7 +8,7 @@ Nineteen versioned standards plus the toolchain to apply them to a work repo.
 
 - **Eight structural standards** (`v1.0.0`): `REPO_STRUCTURE`, `LANGUAGE`, `MODULE_SEPARATION`, `PORTABILITY`, `BUILD_CONFIG`, `TESTING`, `CI`, `MIGRATION`. Govern repo shape, build configuration, and the rollout process.
 - **Eight content standards** (`v1.2.0`): `CANCELLATION`, `COMMENTS`, `CONFIGURATION`, `ERROR_HANDLING`, `EVENTARGS`, `LOGGING`, `THREAD_SAFETY`, `VISIBILITY`. Govern code-level idiom within adopted repos.
-- **Three GUI standards** (`v1.5.0`): `GUI` (Avalonia + FuncUI + Elmish-MVU shape for archetype A apps, with a legacy WinForms/WPF carve-out), `DESIGN_SYSTEM` (theme / spacing / iconography / i18n / error surfaces; brand palette pending), and `APP_SHELL` (canonical view catalogue + typed `ShellSlots` pattern; Navigation locked to a left sidebar).
+- **Three GUI standards** (`v1.5.0`): `GUI` (Avalonia + FuncUI + Elmish-MVU shape for archetype A apps, with a legacy WinForms/WPF carve-out), `DESIGN_SYSTEM` (Stem brand palette and typography realised, Fluent theme with light default, 4-pt spacing scale, Fluent System Icons, F# strings-module i18n, four error-and-progress surfaces), and `APP_SHELL` (canonical view catalogue + typed `ShellSlots` pattern; Navigation locked to a left sidebar).
 
 Each standard is a single markdown file under [`shared/standards/`](./shared/standards/). Templates that the rollout copies into adopted repos live under [`shared/templates/`](./shared/templates/). The rollout script is [`eng/apply-repo-standard.ps1`](./eng/apply-repo-standard.ps1). Adoption is tracked in [`state/repos.md`](./state/repos.md).
 
@@ -58,7 +58,7 @@ See [`shared/standards/REPO_STRUCTURE.md`](./shared/standards/REPO_STRUCTURE.md)
 | `ERROR_HANDLING` | v1.2 | Try-pattern / Result type / exception decision tree; BCL throw helpers |
 | `CONFIGURATION` | v1.2 | Constants → Configuration → Service pattern; library + app delivery mechanisms |
 | `GUI` | v1.5 | Avalonia + FuncUI + Elmish-MVU; `<App>.GUI/` layout; composition root; legacy WinForms/WPF carve-out |
-| `DESIGN_SYSTEM` | v1.5 | Fluent theme + dark default; 4-pt spacing scale; Fluent System Icons; F# strings module for i18n; toast/banner/inline/modal error surfaces |
+| `DESIGN_SYSTEM` | v1.5 | Fluent theme + light default (brand-aligned); 4-pt spacing scale; Fluent System Icons; Poppins typography; Stem brand palette (Blu Stem + Cool Gray + RossoAlert + division identity colors); F# strings module for i18n; toast/banner/inline/modal error surfaces |
 | `APP_SHELL` | v1.5 | Canonical view catalogue (Settings / About / LanguagePicker / NotificationCenter / ConnectionStatus); typed `ShellSlots` pattern; Navigation locked to left sidebar |
 
 ## Adopting these standards in a repo

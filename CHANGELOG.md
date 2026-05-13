@@ -27,6 +27,9 @@ Historical entries from `v1.0.0` through `v1.3.3` were written while this repo w
 - `eng/apply-repo-standard.ps1`: `Invoke-TemplateFile` now substitutes placeholders (`{{App}}`, `{{Repo}}`, …) in **destination path segments** in addition to file contents. Source files can live under literal placeholder directories (e.g. `archetypes/A/src/{{App}}.GUI/Resources/fonts/Poppins-Regular.ttf`); the rollout writes them to the substituted per-repo path. Same placeholder table as content substitution — no new placeholders. Lock keys store the substituted form, so re-runs at the same `App` value are idempotent and the local-edit guard works as for any other rollout file. Forward-compatible: no existing template path contained `{{...}}`, so behaviour for existing templates is unchanged. The `.ttf`, `.otf`, `.woff`, and `.woff2` extensions are added to `$noSubstituteExtensions` so font files copy via `WriteAllBytes` instead of the text/LF-normalising path.
 - Pester smoke test gains a `copies Poppins fonts into the per-app GUI project` case that exercises both the path-placeholder substitution and the binary-copy path against the existing `SmokeApp` fixture — asserts the five TTFs land at `src/SmokeApp.GUI/Resources/fonts/Poppins-*.ttf` with intact TrueType magic bytes (`00 01 00 00`), plus the OFL license. Catches regressions in either feature with one assertion block.
 
+### Fixed
+- `README.md` and `eng/apply-repo-standard.ps1`'s `$standardPurpose` registry entry for `DESIGN_SYSTEM` no longer describe the standard as `dark default` with a pending brand palette — both now match the realised state in `shared/standards/DESIGN_SYSTEM.md` (light default, Stem brand palette, Poppins typography). Documentation-only.
+
 ## [1.4.0] - 2026-05-12
 
 ### Added
