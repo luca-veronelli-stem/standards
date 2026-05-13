@@ -44,6 +44,19 @@ Per-repo adoption PR (`chore: bump standards to v1.2.0`):
 5. Update `state/repos.md` to reflect the bump.
 6. Single-commit PR.
 
+## Rollout phase for v1.5.1 — F# runtime restoration
+
+`v1.5.1` is a patch that restores the `FSharp.Core` `PackageVersion` line in `shared/templates/Directory.Packages.props` (dropped in `v1.5.0`, see CHANGELOG). It is a transparent fix from an adopter's perspective: re-running the rollout adds one line to the central package manifest and leaves everything else untouched. There is no archetype dependency — the entry is harmless in archetype-A C# repos and load-bearing in any F# project (Core or test) under CPM.
+
+Per-repo adoption PR (`chore: bump standards to v1.5.1`):
+
+1. Re-run `eng/apply-repo-standard.ps1 -StandardVersion v1.5.1`. The diff is one new `<PackageVersion Include="FSharp.Core" ... />` line in `Directory.Packages.props`. The local-edit guard only fires if the file was hand-customised after the previous bump — apply the recipe in "Pitfalls" if so.
+2. Bump the per-repo `CLAUDE.md` `**Standard version:**` line to `v1.5.1`.
+3. Update `state/repos.md` to reflect the bump.
+4. Single-commit PR.
+
+Adopters with no F# code can skip the bump until they have other reasons to move (e.g. v1.6.x). The fix is only load-bearing for repos that consume `FSharp.Core` via `<PackageReference>`.
+
 ## Rollout phase for v1.4.0 — reusable workflows
 
 `v1.4.0` migrates the four shipped workflow templates (`.github/workflows/ci.yml`, `mirror-bitbucket.yml`, archetype A/B `release.yml`) from full copies to thin caller stubs that delegate the job body via `uses: luca-veronelli-stem/standards/.github/workflows/<workflow>.yml@v1.4.0`. After this bump, GHA-pin updates in the called workflows propagate to adopted repos on the next run — no per-repo PR for routine bumps. It is a minor bump — non-breaking from the consumer side as long as triggers and per-repo inputs survive — so adoption is opt-in per repo and can happen in any order.
