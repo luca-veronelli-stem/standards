@@ -536,7 +536,7 @@ $standardPurpose = [ordered]@{
 $indexLines = New-Object System.Collections.Generic.List[string]
 $indexLines.Add("# STEM standards (Standard version: $($cfg.standardVersion))")
 $indexLines.Add('')
-$indexLines.Add("These are inline copies pinned to ``$($cfg.standardVersion)``. Upstream source of truth is [`standards/shared/standards/`](https://github.com/$($cfg.lucaUser)/standards/tree/$($cfg.standardVersion)/shared/standards) (private repo).")
+$indexLines.Add("These are inline copies pinned to ``$($cfg.standardVersion)``. Upstream source of truth is [`standards/shared/standards/`](https://github.com/$($cfg.lucaUser)/standards/tree/$($cfg.standardVersion)/shared/standards).")
 $indexLines.Add('')
 $indexLines.Add('| Standard | Purpose |')
 $indexLines.Add('| --- | --- |')

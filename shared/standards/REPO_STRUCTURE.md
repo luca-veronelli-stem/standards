@@ -81,14 +81,15 @@ Run a `new-archetype` design session before adopting any standard. Don't force-f
 
 A symlink **inside** a work repo's tracked tree (`docs/Standards/` → `<standards>/shared/standards/`) is a different problem: git stores the relative target as a tiny text file that has to resolve **everywhere the repo is read**.
 
-| Where the work repo is read | In-repo symlink | Hyperlink to private standards | Inline copy |
+| Where the work repo is read | In-repo symlink | Hyperlink to standards | Inline copy |
 | --- | --- | --- | --- |
 | Local machine, both repos checked out | ✅ | ✅ | ✅ |
-| GitHub Actions runner | ❌ — sibling repo not cloned | ✅ (auth) | ✅ |
-| Bitbucket-only colleague's clone | ❌ — no GitHub access | ❌ — 404 on private repo | ✅ |
-| Drift risk if `standards` evolves | none | low (pin to tag) | bounded by Standard version stamp + `state/repos.md` |
+| GitHub Actions runner | ❌ — sibling repo not cloned | ✅ | ✅ |
+| Bitbucket-only colleague's clone | ❌ — no GitHub access | ✅ (public, tag-pinned URL) | ✅ |
+| Drift risk if `standards` evolves | none | none (tag-pinned) | bounded by Standard version stamp + `state/repos.md` |
+| Greppable / readable inside the work repo | external — points outside the tree | external — needs a browser round-trip | ✅ |
 
-The dual-remote rule says colleagues read from Bitbucket, so the standards have to be physically present in the work repo. Symlinks and hyperlinks both fail that constraint; inline copy is the only option that survives.
+Symlinks fail the dual-remote constraint: a Bitbucket-only colleague has no path to the GitHub-hosted target. Hyperlinks now resolve for that case — `standards` is public — but they push the standards content outside the work repo's tree, so any repo-local read (grep, on-Bitbucket inline review, offline browse) has to round-trip through a browser. Inline copies keep the content inside the work repo and pin it to an explicit Standard version stamp, which is the property `state/repos.md` actually tracks.
 
 ### Why we still use symlinks for `~/.claude/`
 

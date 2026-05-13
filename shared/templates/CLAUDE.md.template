@@ -3,7 +3,7 @@
 **Archetype:** {{Archetype}}
 **Standard version:** {{StandardVersion}}
 
-This repo follows the STEM standards documented in [`docs/Standards/`](./docs/Standards/) (inline copies pinned to the version above). Upstream source of truth lives in [`standards`](https://github.com/{{LucaUser}}/standards/tree/{{StandardVersion}}/shared/standards) (private).
+This repo follows the STEM standards documented in [`docs/Standards/`](./docs/Standards/) (inline copies pinned to the version above). Upstream source of truth lives in [`standards`](https://github.com/{{LucaUser}}/standards/tree/{{StandardVersion}}/shared/standards).
 
 ## Repo-specific notes
 

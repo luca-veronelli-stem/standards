@@ -16,6 +16,9 @@ Historical entries from `v1.0.0` through `v1.3.3` were written while this repo w
 
 ## [Unreleased]
 
+### Changed
+- Repository flipped from private to public on GitHub. `MIGRATION.md`'s "Rollout phase for v1.4.0" no longer documents an "Actions access" prerequisite — public repos resolve cross-repo reusable-workflow `uses:` references without the `access_level=user` toggle. Adopter-facing wording stripped of "(private)" / "(private repo)" suffixes in `shared/templates/CLAUDE.md.template`, `eng/apply-repo-standard.ps1` (generated `docs/Standards/README.md` header), and `state/repos.md`. Inline-copy rationale in `REPO_STRUCTURE.md` updated: hyperlink-to-standards now resolves for Bitbucket-only colleagues, but inline copies still win on the grounds that matter (in-tree greppability, no browser round-trip, pinned to Standard version). No standard contracts change.
+
 ## [1.4.0] - 2026-05-12
 
 ### Added
