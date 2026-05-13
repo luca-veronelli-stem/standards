@@ -48,13 +48,7 @@ Per-repo adoption PR (`chore: bump standards to v1.2.0`):
 
 `v1.4.0` migrates the four shipped workflow templates (`.github/workflows/ci.yml`, `mirror-bitbucket.yml`, archetype A/B `release.yml`) from full copies to thin caller stubs that delegate the job body via `uses: luca-veronelli-stem/standards/.github/workflows/<workflow>.yml@v1.4.0`. After this bump, GHA-pin updates in the called workflows propagate to adopted repos on the next run — no per-repo PR for routine bumps. It is a minor bump — non-breaking from the consumer side as long as triggers and per-repo inputs survive — so adoption is opt-in per repo and can happen in any order.
 
-**One-time prerequisite (do this once before the first bump).** The `standards` repo is private; GitHub gates cross-repo reusable-workflow calls behind the workflow-source repo's "Actions access" setting. Set it to `user` so adopted repos owned by the same user can resolve the `uses:` references — without this, every adopted CI run fails with `unable to find workflow at <ref>`. Either via the UI (Settings → Actions → General → Access → "Accessible from repositories owned by the user account") or via the API:
-
-```bash
-gh api -X PUT repos/luca-veronelli-stem/standards/actions/permissions/access -f access_level=user
-```
-
-This is a one-shot — do it once and forget. Verify with `gh api repos/luca-veronelli-stem/standards/actions/permissions/access` (expect `{"access_level":"user"}`).
+The `standards` repo is public, so cross-repo reusable-workflow calls resolve without any "Actions access" prerequisite on the workflow-source repo.
 
 Per-repo adoption PR (`chore: bump standards to v1.4.0`):
 
