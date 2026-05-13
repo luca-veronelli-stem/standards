@@ -531,6 +531,7 @@ $standardPurpose = [ordered]@{
     'COMMENTS'           = 'XML doc coverage by visibility; English by default; <inheritdoc/>.'
     'ERROR_HANDLING'     = 'Try-pattern / Result type / exception decision tree.'
     'CONFIGURATION'      = 'Constants -> Configuration -> Service pattern; library + app delivery.'
+    'GUI'                = 'Avalonia + FuncUI + Elmish-MVU; <App>.GUI/ layout; composition root; legacy WinForms/WPF carve-out.'
 }
 
 $indexLines = New-Object System.Collections.Generic.List[string]
