@@ -16,6 +16,8 @@ Historical entries from `v1.0.0` through `v1.3.3` were written while this repo w
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-05-13
+
 ### Added
 - Archetype A greenfield scaffold — the rollout now emits a minimal F# `Core` + `Tests` pair plus the matching `Stem.<App>.slnx` for every archetype-A bootstrap. Files: `Stem.<App>.slnx` (two `<Project Path="...">` entries), `src/<App>.Core/<App>.Core.fsproj` (empty F# library, `RootNamespace=Stem.<App>.Core`, single `Compile Include="Placeholder.fs"`), `src/<App>.Core/Placeholder.fs` (`module Stem.<App>.Core.Placeholder` with a `[<Literal>] Marker = "alive"`), `tests/<App>.Tests/<App>.Tests.fsproj` (xunit + Microsoft.NET.Test.Sdk + FSharp.Core, `<GenerateProgramFile>true</GenerateProgramFile>` for xunit's reflection-based discoverer on .NET 10, `ProjectReference` to `Core`), and `tests/<App>.Tests/PlaceholderTests.fs` (one `[<Fact>]` proving end-to-end discovery). Templates live under `shared/templates/archetypes/A/` with literal `{{App}}` folder names; the rollout's existing path-placeholder substitution pipes them to the per-app destinations. Scaffold files are added to `$bootstrapOnlyFiles` so re-runs over a bootstrapped repo neither re-create deleted placeholders nor clobber adopter-edited ones. Pester smoke gains five `It` assertions (scaffold-lands, GenerateProgramFile=true, substituted module names, correct `ProjectReference` form) plus a separate `Describe` exercising the preservation invariant (edit-survives + delete-survives). Closes #75. Pairs with #74 (FSharp.Core CPM restoration) — together v1.5.1 removes the two first-adopter gaps that forced `button-panel-tester` to hand-roll its first project.
 
