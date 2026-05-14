@@ -16,6 +16,8 @@ Historical entries from `v1.0.0` through `v1.3.3` were written while this repo w
 
 ## [Unreleased]
 
+## [1.5.3] - 2026-05-14
+
 ### Fixed
 - Reusable `dotnet-ci.yml` Lean half: switched the cache step's `hashFiles('lean-toolchain')` to the recursive `hashFiles('**/lean-toolchain')` pattern so the sub-directory layout (`lean/lean-toolchain` — STEM apps' default, keeps Lean artefacts grouped) lands in the same cache key as the workspace-root layout (`./lean-toolchain`). The literal pattern was workspace-rooted and matched only `./lean-toolchain`, skipping the cache step entirely (and emitting an empty key) for any repo using the sub-directory layout. Added the missing build half: a `Setup elan` step (installs elan via the upstream init script, no-op on cache hit since `~/.elan/bin/elan` is already restored) followed by a `Lake build` step gated on `**/lean-toolchain` with a `working-directory` ternary (`./` or `./lean`, whichever holds `lean-toolchain`). Both new steps are Linux-only — the Lean toolchain is identical across OSes, so doubling on the Windows leg buys no signal — and together they make CI the gate for constitution Principle I (no `sorry`, no custom axioms) instead of leaving it as a per-repo workflow override. Surfaced while implementing `button-panel-tester` Phase 1 T007 against v1.5.2. Closes #84.
 - `shared/standards/CI.md`: updated the Caching and Steps bullets to match the new shape (recursive `**/lean-toolchain` key, Linux-only `lake build` step, working-directory ternary covering both layouts).
