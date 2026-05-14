@@ -238,3 +238,126 @@ Describe 'apply-repo-standard.ps1 (scaffold preservation)' {
         Join-Path $script:preserveTarget 'tests/PreserveApp.Tests/PlaceholderTests.fs' | Should -Not -Exist
     }
 }
+
+Describe 'apply-repo-standard.ps1 (-Minimal version-stamped + lock preservation)' {
+
+    # Regression coverage for issue #87: -Minimal mode skipped workflow stubs
+    # carrying {{StandardVersion}} (so adopter pins stayed at the source tag)
+    # and shrank .stem-standard.lock to only files iterated this turn (so
+    # files outside the source-side diff lost their baseline hash). Uses
+    # real standards tags so the `git diff <a>..<b>` path inside the
+    # rollout actually exercises the version-stamped backstop.
+    BeforeAll {
+        $script:rolloutPs1 = Resolve-Path (Join-Path $PSScriptRoot '..\apply-repo-standard.ps1')
+
+        $script:minimalTarget = Join-Path ([System.IO.Path]::GetTempPath()) `
+            "stem-rollout-minimal-$([Guid]::NewGuid().ToString('N').Substring(0,8))"
+        New-Item -ItemType Directory -Path $script:minimalTarget -Force | Out-Null
+
+        Push-Location $script:minimalTarget
+        try {
+            git init --quiet 2>&1 | Out-Null
+        } finally {
+            Pop-Location
+        }
+
+        # Bootstrap at v1.5.2 (a real tag -- the previous release).
+        & $script:rolloutPs1 `
+            -RepoPath        $script:minimalTarget `
+            -App             'MinApp' `
+            -Repo            'min-repo' `
+            -Archetype       'A' `
+            -Owner           'min-owner' `
+            -LucaUser        'min-luca' `
+            -StandardVersion 'v1.5.2' `
+            -Description     'Minimal bump fixture' 6>&1 | Out-Null
+        $script:bootstrapExit = $LASTEXITCODE
+
+        $script:lockAfterBootstrap = Get-Content (Join-Path $script:minimalTarget '.stem-standard.lock') -Raw `
+            | ConvertFrom-Json
+
+        # -Minimal bump to v1.5.3. Source-side diff between the two tags is
+        # `shared/standards/CI.md` only; the version-stamped workflow stubs
+        # must still re-render because their @vX.Y.Z pin changes.
+        & $script:rolloutPs1 `
+            -RepoPath        $script:minimalTarget `
+            -App             'MinApp' `
+            -Repo            'min-repo' `
+            -Archetype       'A' `
+            -Owner           'min-owner' `
+            -LucaUser        'min-luca' `
+            -StandardVersion 'v1.5.3' `
+            -Description     'Minimal bump fixture' `
+            -Minimal 6>&1 | Out-Null
+        $script:minimalExit = $LASTEXITCODE
+
+        $script:lockAfterMinimal = Get-Content (Join-Path $script:minimalTarget '.stem-standard.lock') -Raw `
+            | ConvertFrom-Json
+    }
+
+    AfterAll {
+        if ($script:minimalTarget -and (Test-Path $script:minimalTarget)) {
+            Remove-Item $script:minimalTarget -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    It 'bootstrap at v1.5.2 exits zero' {
+        $script:bootstrapExit | Should -Be 0
+    }
+
+    It '-Minimal bump to v1.5.3 exits zero' {
+        $script:minimalExit | Should -Be 0
+    }
+
+    It 're-renders the CI workflow stub to the target tag' {
+        # Bug A repro: pre-fix, ci.yml stayed pinned to @v1.5.2 because its
+        # source template was byte-identical between tags and -Minimal
+        # scoped it out, even though the substituted output differs.
+        $ci = Get-Content (Join-Path $script:minimalTarget '.github/workflows/ci.yml') -Raw
+        $ci | Should -Match 'dotnet-ci\.yml@v1\.5\.3'
+        $ci | Should -Not -Match '@v1\.5\.2'
+    }
+
+    It 're-renders the mirror-bitbucket stub to the target tag' {
+        $mirror = Get-Content (Join-Path $script:minimalTarget '.github/workflows/mirror-bitbucket.yml') -Raw
+        $mirror | Should -Match 'mirror-bitbucket\.yml@v1\.5\.3'
+        $mirror | Should -Not -Match '@v1\.5\.2'
+    }
+
+    It 're-renders the archetype A release stub to the target tag' {
+        # Archetype overlay iteration didn't pass AlwaysIterate at all
+        # pre-fix, so this stub was the most broken case.
+        $release = Get-Content (Join-Path $script:minimalTarget '.github/workflows/release.yml') -Raw
+        $release | Should -Match 'release-archetype-a\.yml@v1\.5\.3'
+        $release | Should -Not -Match '@v1\.5\.2'
+    }
+
+    It 're-renders CLAUDE.md to the target standard version' {
+        $claude = Get-Content (Join-Path $script:minimalTarget 'CLAUDE.md') -Raw
+        $claude | Should -Match '\*\*Standard version:\*\* v1\.5\.3'
+        $claude | Should -Not -Match 'v1\.5\.2'
+    }
+
+    It 're-renders README.md pin block to the target tag' {
+        $readme = Get-Content (Join-Path $script:minimalTarget 'README.md') -Raw
+        $readme | Should -Match 'pinned to `v1\.5\.3`'
+        $readme | Should -Not -Match 'pinned to `v1\.5\.2`'
+    }
+
+    It 'preserves lock entries for files outside the -Minimal diff set' {
+        # Bug B repro: pre-fix, .stem-standard.lock shrank to only the
+        # files iterated this turn. Verify the lock retains every entry
+        # from the bootstrap baseline.
+        $bootstrapKeys = $script:lockAfterBootstrap.files.PSObject.Properties.Name
+        $minimalKeys   = $script:lockAfterMinimal.files.PSObject.Properties.Name
+        $bootstrapKeys.Count | Should -BeGreaterThan 10 `
+            -Because 'baseline lock must be non-trivial'
+        $missing = @($bootstrapKeys | Where-Object { $_ -notin $minimalKeys })
+        $missing.Count | Should -Be 0 `
+            -Because "lock entries lost on -Minimal turn: $($missing -join ', ')"
+    }
+
+    It 'advances the lock standardVersion to the target' {
+        $script:lockAfterMinimal.standardVersion | Should -Be 'v1.5.3'
+    }
+}

@@ -17,7 +17,16 @@ jobs:
     name: Static checks
     runs-on: windows-latest
     steps:
+      # `fetch-tags: true` so the Pester -Minimal suite (which exercises the
+      # rollout's `git diff <source>..<target>` path between real `standards`
+      # tags) finds both refs in the runner's checkout. Pre-this-line, only
+      # branch heads were fetched and the tag-dependent tests silently
+      # fell back to the full-iteration path (and the rollout's sticky
+      # $LASTEXITCODE from the failed git diff broke the exit-zero check).
       - uses: actions/checkout@v6
+        with:
+          fetch-tags: true
+          fetch-depth: 0
 
       # Protects: rollout script (eng/apply-repo-standard.ps1) and any other
       # PowerShell shipped from this repo. The rollout is the highest-stakes
