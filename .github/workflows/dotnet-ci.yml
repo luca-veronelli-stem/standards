@@ -61,9 +61,16 @@ jobs:
       - name: Verify formatting (whitespace)
         run: dotnet format whitespace --verify-no-changes --no-restore
 
-      # No --framework filter: it overrides per-project TFMs and breaks legacy
-      # net10.0-windows projects. The Linux test leg below enforces the
-      # cross-platform contract (Tests are net10.0-only).
+      # The Linux leg drops `--framework net10.0` from build (#22) and runs
+      # tests project-by-project (#82): that flag overrides per-project TFMs.
+      # The build step compiles every project (legacy net10.0-windows ones
+      # build on Linux via EnableWindowsTargeting=true). The test step then
+      # enumerates `tests/**/*.Tests.{fsproj,csproj}` and skips projects whose
+      # name matches `*.Tests.Windows.*` or `*.Tests.Linux.*` -- the naming
+      # convention codified in shared/standards/TESTING.md. vstest cannot
+      # filter Windows-only-TFM test assemblies via `--framework net10.0` at
+      # solution scope (it tries to load a net10.0 output that does not exist),
+      # so exclusion happens at the project level.
       - name: Build (cross-platform leg)
         if: runner.os == 'Linux'
         run: dotnet build --configuration Release --no-restore
@@ -74,7 +81,16 @@ jobs:
 
       - name: Test (cross-platform leg)
         if: runner.os == 'Linux'
-        run: dotnet test --framework net10.0 --configuration Release --no-build --logger "trx;LogFileName=test-results.trx"
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s globstar nullglob
+          for proj in tests/**/*.Tests.fsproj tests/**/*.Tests.csproj; do
+            case "$proj" in
+              *.Tests.Windows.*|*.Tests.Linux.*) continue ;;
+            esac
+            dotnet test "$proj" --framework net10.0 --configuration Release --no-build --logger "trx;LogFileName=test-results.trx"
+          done
 
       - name: Test (full leg)
         if: runner.os == 'Windows'
