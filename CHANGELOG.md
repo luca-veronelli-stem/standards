@@ -16,6 +16,13 @@ Historical entries from `v1.0.0` through `v1.3.3` were written while this repo w
 
 ## [Unreleased]
 
+### Changed
+- `shared/standards/TESTING.md`: codified the `<App>.Tests` + `<App>.Tests.Windows` (and optional `<App>.Tests.Linux`) project naming for TFM-split test surfaces. Pre-v1.5.2 the only "split" shape documented was a language-driven `<App>.Windows.Tests` for a legacy C# layer; the new section recognises the TFM split as the more common driver (an `Infrastructure` or `GUI` project that targets `net10.0-windows` forces NU1201 on a cross-platform F# tests `ProjectReference` — split is mandatory, not optional, in that case). The `<App>.Tests.<Platform>` prefix shape replaces the previous `<App>.Windows.Tests` example because the prefix is now load-bearing for the CI workflow (see Fixed). Surfaced while bootstrapping `button-panel-tester` Phase 1 (Tests + Tests.Windows split).
+- `shared/standards/CI.md` and `shared/standards/PORTABILITY.md`: updated the test snippets to match the new Linux test step shape. PORTABILITY's "Verifying portability" recipe now scopes `dotnet test` to a specific project and notes the convention; CI's "Test reporting" section shows the per-project loop alongside the Windows-leg one-shot.
+
+### Fixed
+- Reusable `dotnet-ci.yml` Linux test leg: replaced `dotnet test --framework net10.0` at solution scope with a per-project loop that enumerates `tests/**/*.Tests.{fsproj,csproj}` and skips `*.Tests.Windows.*` / `*.Tests.Linux.*` by name. The previous shape exited non-zero on any repo with a `<App>.Tests.Windows` project (vstest tries to load a `net10.0` output that does not exist on a `net10.0-windows`-only project — `The argument …/bin/Release/net10.0/<App>.Tests.Windows.dll is invalid`). This is the test-leg analog of #22 (build-leg fix on legacy WinForms) and the v1.5.1 carry-over did not address it; surfaced while implementing `button-panel-tester` Phase 1 against v1.5.1. The naming-convention exclusion (codified in TESTING) keeps the workflow input-free for adopters who follow the standard. Closes #82.
+
 ## [1.5.1] - 2026-05-13
 
 ### Added

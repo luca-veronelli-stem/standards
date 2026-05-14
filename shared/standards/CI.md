@@ -57,10 +57,24 @@ The Linux leg builds only `net10.0`. The Windows leg builds both `net10.0` and `
 
 ## Test reporting
 
-`dorny/test-reporter@v3` consumes the TRX output from `dotnet test --logger trx` and surfaces failed tests in the PR check. Step:
+`dorny/test-reporter@v3` consumes the TRX output from `dotnet test --logger trx` and surfaces failed tests in the PR check. The Windows leg runs the solution in one go; the Linux leg enumerates test projects and skips Windows-only / Linux-only ones by name (`*.Tests.Windows.*`, `*.Tests.Linux.*`) — see TESTING for the convention:
 
 ```yaml
-- name: Test
+- name: Test (cross-platform leg)
+  if: runner.os == 'Linux'
+  shell: bash
+  run: |
+    set -euo pipefail
+    shopt -s globstar nullglob
+    for proj in tests/**/*.Tests.fsproj tests/**/*.Tests.csproj; do
+      case "$proj" in
+        *.Tests.Windows.*|*.Tests.Linux.*) continue ;;
+      esac
+      dotnet test "$proj" --framework net10.0 --configuration Release --no-build --logger "trx;LogFileName=test-results.trx"
+    done
+
+- name: Test (full leg)
+  if: runner.os == 'Windows'
   run: dotnet test --configuration Release --no-build --logger "trx;LogFileName=test-results.trx"
 
 - name: Test report
@@ -72,6 +86,8 @@ The Linux leg builds only `net10.0`. The Windows leg builds both `net10.0` and `
     reporter: dotnet-trx
     use-actions-summary: 'false'
 ```
+
+Why the Linux leg loops: vstest cannot filter Windows-only-TFM assemblies via `--framework net10.0` at solution scope — given a `<App>.Tests.Windows` project that only targets `net10.0-windows`, the runner tries to load a `net10.0` output that does not exist and exits non-zero. The naming convention (TESTING) lets the workflow exclude those projects at the project layer instead.
 
 `if: always()` so failed tests still produce a report. `use-actions-summary: 'false'` opts back into the legacy Check Run sink — v3's default writes to `$GITHUB_STEP_SUMMARY` instead, which silently drops the per-OS Tests gate at PR level.
 
