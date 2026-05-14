@@ -16,6 +16,13 @@ Historical entries from `v1.0.0` through `v1.3.3` were written while this repo w
 
 ## [Unreleased]
 
+### Fixed
+- `eng/apply-repo-standard.ps1` `-Minimal` mode: workflow stubs carrying `{{StandardVersion}}` (`.github/workflows/ci.yml`, `.github/workflows/mirror-bitbucket.yml`, archetype overlay `release.yml`) are now re-rendered on every bump even when their source template is byte-identical between source and target tags. Pre-fix, the "always re-render" allowlist was hardcoded to `CLAUDE.md.template` + `README.md.template` only, and the archetype overlay iteration didn't pass the override at all -- so a `-Minimal v1.5.0 → v1.5.3` bump left the adopter's `@v1.5.0` pin in place and the bumped repo kept calling the OLD reusable workflow. The hardcoded list is replaced by a dynamic scan of `shared/templates/**` for the `{{StandardVersion}}` marker (skipping binary templates), so future templates that gain the placeholder are picked up automatically. Surfaced during the v1.5.3 realignment of `button-panel-tester` (PR [#77](https://github.com/luca-veronelli-stem/button-panel-tester/pull/77)). Closes #87.
+- `eng/apply-repo-standard.ps1` `-Minimal` and bootstrap-only early returns now preserve the prior `.stem-standard.lock` entry into the on-save lock instead of dropping it. Pre-fix, a single `-Minimal` turn shrank the lock from 30+ entries to only the files iterated that turn (the diff-set + the README index), so the per-file SHA256 baseline for the 20+ untouched template/standard files was lost -- eroding the local-edit guard the lock exists to provide. Coupled fix: the bootstrap-only branch (scaffold files like `Placeholder.fs`) had the same drop-on-skip shape and is now consistent with the locally-modified branch that already preserved the prior hash. Same issue as above (#87).
+
+### Changed
+- `eng/tests/Apply-RepoStandard.Tests.ps1`: new `Describe` block for `-Minimal` mode that bootstraps a fresh fixture at `v1.5.2` and bumps it via `-Minimal -StandardVersion v1.5.3`. Asserts the three workflow stubs (`ci.yml`, `mirror-bitbucket.yml`, archetype A `release.yml`) re-render to `@v1.5.3`, `CLAUDE.md` and `README.md` re-render to the new pin, and every entry from the bootstrap-time lock survives the `-Minimal` turn. Uses real `standards` tags so the rollout's `git diff <source>..<target>` path is exercised.
+
 ## [1.5.3] - 2026-05-14
 
 ### Fixed

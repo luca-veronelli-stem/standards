@@ -248,6 +248,32 @@ function Expand-Placeholder {
 # a flat list lookup.
 $bootstrapOnlyFilesExpanded = @($bootstrapOnlyFiles | ForEach-Object { Expand-Placeholder -Text $_ })
 
+# Templates whose substituted output depends on $StandardVersion -- always
+# re-render in -Minimal mode (the bump itself changes their output even when
+# the source template is byte-identical between tags). Detected dynamically
+# by scanning shared/templates/** for the {{StandardVersion}} marker, so
+# future templates that gain the placeholder get picked up automatically
+# without editing this script (issue #87). Binary templates (fonts, etc.)
+# are skipped -- they can't carry the marker.
+$versionStampedSourceRels = New-Object System.Collections.Generic.HashSet[string]
+Get-ChildItem -Path $templatesRoot -Recurse -File | ForEach-Object {
+    if ($noSubstituteExtensions -contains $_.Extension.ToLowerInvariant()) { return }
+    $text = [System.IO.File]::ReadAllText($_.FullName)
+    if ($text.Contains('{{StandardVersion}}')) {
+        $rel = $_.FullName.Substring($templatesRoot.Length).TrimStart('\','/').Replace('\','/')
+        [void]$versionStampedSourceRels.Add($rel)
+    }
+}
+
+function Test-VersionStamped {
+    param([string]$AbsoluteSourcePath)
+    if (-not $AbsoluteSourcePath.StartsWith($templatesRoot, [StringComparison]::OrdinalIgnoreCase)) {
+        return $false
+    }
+    $rel = $AbsoluteSourcePath.Substring($templatesRoot.Length).TrimStart('\','/').Replace('\','/')
+    return $versionStampedSourceRels.Contains($rel)
+}
+
 # Normalize line endings to LF before hashing, so a target file rewritten as
 # CRLF by core.autocrlf=true still hashes equal to its LF source.
 function ConvertTo-LfText {
@@ -320,6 +346,11 @@ if ($Minimal) {
             $diffOutput = & git diff --name-only "$($lock.standardVersion)..$($cfg.standardVersion)" -- shared/templates shared/standards 2>$null
             if ($LASTEXITCODE -ne 0) {
                 Write-Host "[-Minimal] git diff failed -- falling back to full iteration." -ForegroundColor DarkYellow
+                # Clear the sticky exit code from git so the rollout exits clean
+                # on the fallback (otherwise PowerShell propagates the git
+                # failure as the script's own exit code, confusing callers --
+                # e.g. CI runners on a checkout without the source tag fetched).
+                $global:LASTEXITCODE = 0
             } else {
                 $minimalAllowedSourceRels = @{}
                 foreach ($p in $diffOutput) {
@@ -386,15 +417,34 @@ function Invoke-TemplateFile {
     $ext      = [System.IO.Path]::GetExtension($SourceFile).ToLowerInvariant()
     $isBinary = $noSubstituteExtensions -contains $ext
 
+    # Both early-return policies below preserve the prior lock entry into
+    # $writtenLockHashes so the on-save lock retains the baseline for files
+    # this turn didn't touch. Without this, every -Minimal bump shrinks
+    # `.stem-standard.lock` to only the files iterated this turn, eroding
+    # the local-edit guard for everything else (issue #87).
+    $priorLockHash = $null
+    if ($lock -and $lock.files -and ($lock.files.PSObject.Properties.Name -contains $destRelativeFwd)) {
+        $priorLockHash = $lock.files.$destRelativeFwd
+    }
+
     # -- Policy: bootstrap-only files are never overwritten on re-run.
     if ($repoIsBootstrapped -and $bootstrapOnlyFilesExpanded -contains $destRelativeFwd) {
         $skippedBootstrap.Add("[$Tag] $destRelativeFwd")
+        if ($priorLockHash) { $writtenLockHashes[$destRelativeFwd] = $priorLockHash }
         return
     }
 
     # -- Policy: -Minimal narrows iteration to source files that changed.
-    if (-not $AlwaysIterate -and -not (Test-MinimalAllowed -AbsoluteSourcePath $SourceFile)) {
+    # Files whose substituted output depends on $StandardVersion always iterate
+    # (the bump changes their output even when the source template is
+    # byte-identical between tags). $AlwaysIterate is the explicit caller
+    # override; Test-VersionStamped is the dynamic backstop for any template
+    # that carries {{StandardVersion}} -- both must miss for the file to be
+    # eligible for -Minimal scoping (issue #87).
+    $alwaysIterate = $AlwaysIterate -or (Test-VersionStamped -AbsoluteSourcePath $SourceFile)
+    if (-not $alwaysIterate -and -not (Test-MinimalAllowed -AbsoluteSourcePath $SourceFile)) {
         $skippedMinimal.Add("[$Tag] $destRelativeFwd")
+        if ($priorLockHash) { $writtenLockHashes[$destRelativeFwd] = $priorLockHash }
         return
     }
 
@@ -426,15 +476,13 @@ function Invoke-TemplateFile {
         }
 
         # Disk differs from rendered template. Was it the rollout's previous
-        # write or a local edit?
-        $lockHash = $null
-        if ($lock -and $lock.files -and ($lock.files.PSObject.Properties.Name -contains $destRelativeFwd)) {
-            $lockHash = $lock.files.$destRelativeFwd
-        }
+        # write or a local edit? $priorLockHash was computed at the top of
+        # the function (also used by the bootstrap-only and -Minimal early
+        # returns above).
 
         # Decide whether the on-disk content was hand-edited:
         #   - If we have a lock baseline AND a hash for this file, the answer is
-        #     exact: disk != lockHash means the user changed it since the last rollout.
+        #     exact: disk != priorLockHash means the user changed it since the last rollout.
         #   - If we have a lock baseline but no hash for this file, the file slipped
         #     past an earlier (lossy) rollout's lock-write. Treat as locally-modified
         #     so the user opts in via -Force; otherwise we'd silently clobber.
@@ -443,8 +491,8 @@ function Invoke-TemplateFile {
         #     for safety (the user uses -Force on the first hardened run to seed).
         #   - If we have neither (true first bootstrap), nothing to protect -- write.
         if ($hasLockBaseline) {
-            if ($lockHash) {
-                $isLocallyModified = ($diskHash -ne $lockHash)
+            if ($priorLockHash) {
+                $isLocallyModified = ($diskHash -ne $priorLockHash)
             } else {
                 $isLocallyModified = $true
             }
@@ -459,7 +507,7 @@ function Invoke-TemplateFile {
             # Preserve the existing lock hash if any, so future runs still
             # see this as locally-modified until either -Force or a manual
             # reconciliation.
-            if ($lockHash) { $writtenLockHashes[$destRelativeFwd] = $lockHash }
+            if ($priorLockHash) { $writtenLockHashes[$destRelativeFwd] = $priorLockHash }
             return
         }
     }
@@ -500,11 +548,12 @@ $archetypesPath = (Join-Path $templatesRoot 'archetypes').TrimEnd('\','/')
 Get-ChildItem -Path $templatesRoot -Recurse -File | Where-Object {
     -not $_.FullName.StartsWith($archetypesPath, [StringComparison]::OrdinalIgnoreCase)
 } | ForEach-Object {
-    # CLAUDE.md.template and README.md.template carry {{StandardVersion}} --
-    # always re-render even in -Minimal mode (the bump itself changes their
-    # substituted output).
-    $alwaysIterate = $_.Name -in @('CLAUDE.md.template','README.md.template')
-    Invoke-TemplateFile -SourceFile $_.FullName -SourceRoot $templatesRoot -DestRoot $repoFull -Tag 'common' -AlwaysIterate:$alwaysIterate
+    # Version-stamped templates (CLAUDE.md.template, README.md.template,
+    # ci.yml, mirror-bitbucket.yml, archetype release.yml -- anything that
+    # carries {{StandardVersion}}) are detected by Test-VersionStamped
+    # inside Invoke-TemplateFile and always iterate; no explicit override
+    # needed at this call site (issue #87).
+    Invoke-TemplateFile -SourceFile $_.FullName -SourceRoot $templatesRoot -DestRoot $repoFull -Tag 'common'
 }
 
 # --------------------------------------------------------------------------
