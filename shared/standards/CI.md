@@ -23,8 +23,8 @@ Triggers, concurrency, and permissions live in the per-repo stub (`.github/workf
 - **Triggers (stub):** `push` to `main`, `pull_request` against `main`, `workflow_dispatch`, weekly `schedule` cron (catches dependency drift on idle repos).
 - **Concurrency (stub):** `concurrency.group = ci-${{ github.ref }}`, `cancel-in-progress: true` — newer pushes cancel older runs on the same branch.
 - **Matrix (reusable):** `os: [ubuntu-latest, windows-latest]`. The Linux leg enforces portability; the Windows leg validates Windows-only drivers and any legacy `GUI.Windows` projects.
-- **Caching (reusable):** `~/.nuget/packages/` keyed on `Directory.Packages.props`; Lean `~/.elan/` keyed on `lean-toolchain` (only when `lean/` exists).
-- **Steps (reusable):** checkout → setup-dotnet (from `global.json`) → restore → format check → build (Release) → test (Release).
+- **Caching (reusable):** `~/.nuget/packages/` keyed on `Directory.Packages.props`; Lean `~/.elan/` keyed on `**/lean-toolchain` (Linux leg only — the toolchain is identical across OSes, so there is no value in doubling the cache + build on Windows). The recursive `**/` pattern handles both supported layouts: workspace-root (`./lean-toolchain`) and the sub-directory layout STEM apps use (`lean/lean-toolchain`).
+- **Steps (reusable):** checkout → setup-dotnet (from `global.json`) → restore → format check → build (Release) → test (Release). The Linux leg additionally runs `lake build` (working directory `./` or `./lean`, whichever holds `lean-toolchain`) when a Lean track is present — that gate enforces constitution Principle I (no `sorry`, no custom axioms) on every adopter PR.
 
 ## Format check is a hard gate (whitespace-only in CI)
 

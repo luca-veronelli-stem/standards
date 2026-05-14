@@ -43,12 +43,30 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-nuget-
 
+      # Lean steps are gated on runner.os == 'Linux' (the build leg that runs
+      # `lake build`) and on the recursive `**/lean-toolchain` pattern so both
+      # layouts work: workspace-root (`./lean-toolchain`) and the
+      # sub-directory layout STEM apps use (`lean/lean-toolchain` — keeps Lean
+      # artefacts grouped, leaves the repo root for .NET / docs / standards).
+      # See #84. The Lean toolchain is identical across OSes, so we don't
+      # double the cache + build on the Windows leg for no signal.
       - name: Cache Lean toolchain
-        if: hashFiles('lean-toolchain') != ''
+        if: runner.os == 'Linux' && hashFiles('**/lean-toolchain') != ''
         uses: actions/cache@v5
         with:
           path: ~/.elan
-          key: ${{ runner.os }}-elan-${{ hashFiles('lean-toolchain') }}
+          key: ${{ runner.os }}-elan-${{ hashFiles('**/lean-toolchain') }}
+
+      - name: Setup elan
+        if: runner.os == 'Linux' && hashFiles('**/lean-toolchain') != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -x "$HOME/.elan/bin/elan" ]; then
+            curl -sSf https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
+              | sh -s -- -y --default-toolchain none
+          fi
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
 
       - name: Restore
         run: dotnet restore
@@ -107,3 +125,14 @@ jobs:
           # Run, which silently drops the per-OS Tests check at PR level. Opt
           # back into the Check Run sink so the gate stays visible on PRs.
           use-actions-summary: 'false'
+
+      # Constitution Principle I gate for adopter repos with a Lean track:
+      # `lake build` must succeed with no `sorry` and no custom axioms. The
+      # working-directory ternary handles both supported layouts -- root
+      # (`./lean-toolchain`) vs. sub-directory (`lean/lean-toolchain`). See
+      # #84 for the recurse-pattern context.
+      - name: Lake build
+        if: runner.os == 'Linux' && hashFiles('**/lean-toolchain') != ''
+        shell: bash
+        working-directory: ${{ hashFiles('lean-toolchain') != '' && '.' || 'lean' }}
+        run: lake build
