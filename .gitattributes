@@ -1,0 +1,5 @@
+# Brand assets ship byte-identical through the archetype A rollout. Marking
+# them binary keeps git's autocrlf out of the loop on Windows checkouts so the
+# SHA256 in $noSubstituteExtensions' copy path stays stable across machines.
+*.svg binary
+*.pdf binary

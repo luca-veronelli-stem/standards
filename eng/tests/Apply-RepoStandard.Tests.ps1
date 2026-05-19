@@ -125,6 +125,27 @@ Describe 'apply-repo-standard.ps1 (smoke)' {
         Join-Path $fontsDir 'OFL.txt' | Should -Exist
     }
 
+    It 'copies Stem brand-mark SVGs byte-identical into the per-app GUI project' {
+        # Branding assets ship as binary (issue #90): `.svg` is in
+        # $noSubstituteExtensions so the rollout neither LF-normalizes the
+        # content nor scans it for {{...}} placeholders. The corporate
+        # positive brand mark is a representative sample -- if it lands
+        # byte-identical, every sibling treatment / division / format
+        # follows the same code path.
+        $brandingDir = Join-Path $script:target 'src/SmokeApp.GUI/Resources/branding'
+        $brandingDir | Should -Exist
+
+        $sourceSvg = Resolve-Path (Join-Path $PSScriptRoot `
+            '../../shared/templates/archetypes/A/src/{{App}}.GUI/Resources/branding/brand-marks/positive/stem-corporate.svg')
+        $destSvg   = Join-Path $brandingDir 'brand-marks/positive/stem-corporate.svg'
+        $destSvg | Should -Exist
+
+        $srcHash  = (Get-FileHash -Path $sourceSvg -Algorithm SHA256).Hash
+        $destHash = (Get-FileHash -Path $destSvg   -Algorithm SHA256).Hash
+        $destHash | Should -Be $srcHash `
+            -Because 'binary copy must preserve the SVG byte-for-byte (no LF normalization, no placeholder substitution)'
+    }
+
     It 'lays down the archetype A greenfield scaffold (slnx + Core + Tests)' {
         # The scaffold is what makes the bootstrap PR green on CI without
         # a hand-rolled follow-up: rollout emits Core + Tests + .slnx, dotnet-ci
