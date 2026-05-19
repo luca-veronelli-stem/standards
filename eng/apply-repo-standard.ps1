@@ -232,7 +232,7 @@ $placeholders = @{
     '{{Year}}'            = $cfg.year
 }
 
-$noSubstituteExtensions = @('.png','.jpg','.jpeg','.gif','.ico','.icns','.dll','.exe','.pdb','.zip','.7z','.tar','.gz','.ttf','.otf','.woff','.woff2')
+$noSubstituteExtensions = @('.png','.jpg','.jpeg','.gif','.ico','.icns','.svg','.dll','.exe','.pdb','.zip','.7z','.tar','.gz','.ttf','.otf','.woff','.woff2')
 $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 
 function Expand-Placeholder {
