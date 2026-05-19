@@ -14,7 +14,7 @@ The version number is the git tag (`v1.0.0`, `v1.1.0`, …). There is no version
 
 Historical entries from `v1.0.0` through `v1.3.3` were written while this repo was bundled with the agent-config under the name `llm-settings`. From this point forward `standards` is scoped to the STEM standards alone; the agent-config wiring lives in [`luca-veronelli-stem/llm-settings`](https://github.com/luca-veronelli-stem/llm-settings) (unversioned, HEAD-only).
 
-## [Unreleased]
+## [1.6.0] - 2026-05-19
 
 ### Added
 - Bundled the **Stem brand-mark library** as a binary overlay under `shared/templates/archetypes/A/src/{{App}}.GUI/Resources/branding/`. Fifty-two assets land in every archetype A bootstrap: twenty-four `brand-marks/{positive,negative,mono-white}/stem-{corporate,ems,commercial-vehicles,marine}.{svg,png}` files (full lockup, simbolo + wordmark + optional division wordmark), twenty-four matching `symbols/...` files (simbolo only, sanctioned standalone per tavola 21 of the brand manual), and four `app-icons/stem-app-icon-{positive,mono-white}.{svg,png}` files (square 512 px Windows/macOS/Linux app icon). Positive SVG fill is `#004483` per the agency master — one hex step off the palette token `BluStem = #004682`, both approximating Pantone 2154 C; the gap is too small to read as a colour change and will likely realign on a follow-up bump. Stem France filiale assets (tavolas 14–15, 26–27, 46–50) are intentionally omitted in v1.6.0 — `Branding.Division.France` continues to render `BluFrance` as a badge colour but ships no brand-mark assets yet; a future bump will land them when the first France-targeted app earns its keep. Pairs with `DESIGN_SYSTEM` v1.6.0 (logo grid + application rules rewritten to match the shipped layout). Closes #90.
