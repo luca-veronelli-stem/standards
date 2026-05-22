@@ -14,6 +14,11 @@ The version number is the git tag (`v1.0.0`, `v1.1.0`, …). There is no version
 
 Historical entries from `v1.0.0` through `v1.3.3` were written while this repo was bundled with the agent-config under the name `llm-settings`. From this point forward `standards` is scoped to the STEM standards alone; the agent-config wiring lives in [`luca-veronelli-stem/llm-settings`](https://github.com/luca-veronelli-stem/llm-settings) (unversioned, HEAD-only).
 
+## [1.6.1] - 2026-05-22
+
+### Changed
+- `shared/templates/.gitattributes`: added `*.svg binary` and `*.pdf binary` in the Binary block, between `*.icns` and `*.dll`. The repo's own `.gitattributes` already enforces these (added for v1.6.0 so the brand-asset rollout produces byte-identical SVG/PNG copies in adopters), but the **template** lagged — every adopter that picked up v1.6.0 had to hand-patch the two lines on bump, and the rollout's `Already up to date (40)` summary masked the gap because the unchanged template did match the on-disk file. Surfaced while landing `button-panel-tester` [#88](https://github.com/luca-veronelli-stem/button-panel-tester/issues/88) on v1.6.0 (Tier 1 step 4 documents the hand-fix). Mechanical, additive, no archetype scaffold changes; propagation is lazy on each adopter's next bump. Closes #95.
+
 ## [1.6.0] - 2026-05-19
 
 ### Added
