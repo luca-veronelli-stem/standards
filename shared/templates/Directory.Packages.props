@@ -35,6 +35,18 @@
     <PackageVersion Include="Avalonia.Diagnostics" Version="11.3.7" />
     <PackageVersion Include="Avalonia.FuncUI" Version="1.5.1" />
 
+    <!--
+      Runtime SVG rendering for archetype A apps (brand marks, custom
+      glyphs, division marks). Same author as the deprecated
+      `Avalonia.Svg.Skia`; same `Avalonia.Svg.Skia` namespace under the
+      hood, same Skia engine. Pin to the highest version on the SAME
+      11.3.x line as Avalonia above — NOT the head 11.3.9.x line, which
+      transitively requires `Avalonia >= 11.3.9` and would force an
+      unintended cross-cutting bump (NU1109). When the Avalonia base line
+      bumps, bump this in lockstep.
+    -->
+    <PackageVersion Include="Svg.Controls.Skia.Avalonia" Version="11.3.0.1" />
+
     <!-- Configuration / DI -->
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.7" />
     <PackageVersion Include="Microsoft.Extensions.Configuration" Version="10.0.7" />
