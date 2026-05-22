@@ -12,7 +12,7 @@ The repo itself also declares the same version in its top-level `CLAUDE.md` (see
 | `stem-communication` | B | — | — | not yet adopted; rename + sub-package split planned |
 | `stem-production-tracker` | A | — | — | not yet adopted |
 | `stem-button-panel-tester` | A | v1.3.2 | 2026-05-07 | bumped to v1.3.2 via the seed-then-restore recipe (#42 / #45); greenfield successor: `button-panel-tester` (see row below) |
-| `button-panel-tester` | A | v1.6.0 | 2026-05-21 | greenfield successor to `stem-button-panel-tester`; first v1.5.x adopter |
+| `button-panel-tester` | A | v1.9.0 | 2026-05-22 | greenfield successor to `stem-button-panel-tester`; first v1.5.x adopter |
 | `stem-dictionaries-manager` | A | v1.3.2 | 2026-05-07 | adopted at v1.3.2; app with internal class library — see MIGRATION.md |
 | `spark-log-analyzer` | A | — | — | not yet adopted |
 | `standards` (this repo) | C | n/a | n/a | self-referential — defines the standards |
