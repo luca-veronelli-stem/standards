@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Stem.{{App}}.GUI</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Placeholder.fs" />
+  </ItemGroup>
+
+  <!--
+    Embed bundled UI assets as Avalonia resources so they resolve at runtime
+    via `avares://Stem.{{App}}.GUI/Resources/...` URIs. Covers the Poppins
+    family (DESIGN_SYSTEM Typography), the brand-mark + symbol library
+    (DESIGN_SYSTEM Logo), and the multi-frame app icons used by Window.Icon
+    (DESIGN_SYSTEM App-icon wiring). `.ico` is scoped to `app-icons/` because
+    that is the only sub-tree shipping `.ico` files.
+  -->
+  <ItemGroup>
+    <AvaloniaResource Include="Resources/fonts/*.ttf" />
+    <AvaloniaResource Include="Resources/branding/**/*.svg" />
+    <AvaloniaResource Include="Resources/branding/**/*.png" />
+    <AvaloniaResource Include="Resources/branding/app-icons/*.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FSharp.Core" />
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Desktop" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+    <PackageReference Include="Avalonia.FuncUI" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../{{App}}.Core/{{App}}.Core.fsproj" />
+  </ItemGroup>
+
+</Project>
