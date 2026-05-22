@@ -44,6 +44,21 @@ Per-repo adoption PR (`chore: bump standards to v1.2.0`):
 5. Update `state/repos.md` to reflect the bump.
 6. Single-commit PR.
 
+## Rollout phase for v1.8.0 — single-`.exe` archetype A artifact
+
+`v1.8.0` adds `-p:IncludeNativeLibrariesForSelfExtract=true` to the archetype A reusable release workflow's `dotnet publish` invocation. After this bump, the artifact attached to the GitHub Release for an archetype A adopter is a single self-extracting `.exe` (no sibling `runtimes/win-x64/native/` directory) — draggable, USB-launchable, robust to user-driven moves between folders. Backward-compatible at the caller-stub surface: every input on the reusable (`app`, `repo`, `tag`) keeps the same shape, so a v1.7.x adopter does not need to edit its stub. The only observable change is the shape inside the published zip: one `.exe`, no native sibling DLLs. Closes [#106](https://github.com/luca-veronelli-stem/standards/issues/106).
+
+Per-repo adoption PR (`chore: bump standards to v1.8.0`):
+
+1. Re-run `eng/apply-repo-standard.ps1 -StandardVersion v1.8.0`. The diff is the single `@v1.7.x → @v1.8.0` pin bump in `.github/workflows/release.yml` (the archetype A release stub) — same shape v1.4.0+ adopters see on every patch bump. Hand-customised release workflows hit the local-edit guard and need `-Force` or hand-merge per the v1.4.0 pitfalls.
+2. Bump the per-repo `CLAUDE.md` `**Standard version:**` line to `v1.8.0`.
+3. Update `state/repos.md` to reflect the bump.
+4. Single-commit PR.
+
+No source-code action required. On the adopter's next release tag (`v*.*.*`), the next published artifact's shape changes — flag a one-line note in the adopter's CHANGELOG so anyone debugging a launch on a customer site can correlate.
+
+First-launch extraction note: the bundle extracts native deps to `%LOCALAPPDATA%\.net\<App>\<content-hash>\` on first launch per user per release; subsequent launches reuse the extracted copy. For hardened customer environments where the default path is blocked (EDR quarantine of fresh `.dll` materialization, read-only `%LOCALAPPDATA%`), the escape hatch is the `DOTNET_BUNDLE_EXTRACT_BASE_DIR` environment variable — set it to an app-writable path before launch and the bundle extracts there instead (documented in CI.md alongside the flag).
+
 ## Rollout phase for v1.5.1 — F# runtime restoration, greenfield scaffold, `lean/`-vs-`specs/` clarification
 
 `v1.5.1` ships three first-adopter gap fixes uncovered while bootstrapping `button-panel-tester` against `v1.5.0`:
