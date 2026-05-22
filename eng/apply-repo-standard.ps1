@@ -613,6 +613,7 @@ $standardPurpose = [ordered]@{
     'GUI'                = 'Avalonia + FuncUI + Elmish-MVU; <App>.GUI/ layout; composition root; legacy WinForms/WPF carve-out.'
     'DESIGN_SYSTEM'      = 'Fluent theme + light default (brand-aligned); 4-pt spacing scale; Fluent System Icons; Poppins typography; Stem brand palette; F# strings module for i18n; toast/banner/inline/modal error surfaces.'
     'APP_SHELL'          = 'Canonical views (Settings, About, LanguagePicker, NotificationCenter, ConnectionStatus); typed ShellSlots record; Navigation pinned to left sidebar.'
+    'APP_DATA'           = '<LocalApplicationData>\Stem\<AppName>\ per-user data root; logs/cache/credentials/db sub-folders; transient migration helper for legacy roots.'
 }
 
 $indexLines = New-Object System.Collections.Generic.List[string]

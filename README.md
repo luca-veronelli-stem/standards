@@ -4,11 +4,12 @@ STEM cross-repo engineering standards: how a STEM .NET repo is shaped, what lang
 
 ## What's here
 
-Nineteen versioned standards plus the toolchain to apply them to a work repo.
+Twenty versioned standards plus the toolchain to apply them to a work repo.
 
 - **Eight structural standards** (`v1.0.0`): `REPO_STRUCTURE`, `LANGUAGE`, `MODULE_SEPARATION`, `PORTABILITY`, `BUILD_CONFIG`, `TESTING`, `CI`, `MIGRATION`. Govern repo shape, build configuration, and the rollout process.
 - **Eight content standards** (`v1.2.0`): `CANCELLATION`, `COMMENTS`, `CONFIGURATION`, `ERROR_HANDLING`, `EVENTARGS`, `LOGGING`, `THREAD_SAFETY`, `VISIBILITY`. Govern code-level idiom within adopted repos.
 - **Three GUI standards** (`v1.5.0`): `GUI` (Avalonia + FuncUI + Elmish-MVU shape for archetype A apps, with a legacy WinForms/WPF carve-out), `DESIGN_SYSTEM` (Stem brand palette and typography realised, Fluent theme with light default, 4-pt spacing scale, Fluent System Icons, F# strings-module i18n, four error-and-progress surfaces), and `APP_SHELL` (canonical view catalogue + typed `ShellSlots` pattern; Navigation locked to a left sidebar).
+- **One on-disk-paths standard** (`v1.9.0`): `APP_DATA` (`<LocalApplicationData>\Stem\<AppName>\` per-user data root with `logs\`/`cache\`/`credentials\`/`db\` sub-folders; replaces four divergent legacy conventions).
 
 Each standard is a single markdown file under [`shared/standards/`](./shared/standards/). Templates that the rollout copies into adopted repos live under [`shared/templates/`](./shared/templates/). The rollout script is [`eng/apply-repo-standard.ps1`](./eng/apply-repo-standard.ps1). Adoption is tracked in [`state/repos.md`](./state/repos.md).
 
@@ -16,7 +17,7 @@ Each standard is a single markdown file under [`shared/standards/`](./shared/sta
 
 ```
 shared/
-  standards/      nineteen standards as markdown files
+  standards/      twenty standards as markdown files
   templates/      Directory.Build.props, Directory.Packages.props,
                   .github/workflows/, archetype-specific overlays, doc templates
 eng/
@@ -60,6 +61,7 @@ See [`shared/standards/REPO_STRUCTURE.md`](./shared/standards/REPO_STRUCTURE.md)
 | `GUI` | v1.5 | Avalonia + FuncUI + Elmish-MVU; `<App>.GUI/` layout; composition root; legacy WinForms/WPF carve-out |
 | `DESIGN_SYSTEM` | v1.5 | Fluent theme + light default (brand-aligned); 4-pt spacing scale; Fluent System Icons; Poppins typography; Stem brand palette (Blu Stem + Cool Gray + RossoAlert + division identity colors); F# strings module for i18n; toast/banner/inline/modal error surfaces |
 | `APP_SHELL` | v1.5 | Canonical view catalogue (Settings / About / LanguagePicker / NotificationCenter / ConnectionStatus); typed `ShellSlots` pattern; Navigation locked to left sidebar |
+| `APP_DATA` | v1.9 | `<LocalApplicationData>\Stem\<AppName>\` per-user data root; `logs/`/`cache/`/`credentials/`/`db/` sub-folders; transient migration helper for legacy roots |
 
 ## Adopting these standards in a repo
 
