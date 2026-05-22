@@ -244,6 +244,8 @@ Per-app, `Branding.division` (defined above) selects which division's brand mark
 
 ## App-icon wiring (archetype A, Windows)
 
+The bundle ships `stem-app-icon-positive.ico` and `stem-app-icon-mono-white.ico` under `Resources/branding/app-icons/` since **v1.7.1**, generated from the matching SVG masters by [`eng/New-StemAppIcon.ps1`](../../eng/New-StemAppIcon.ps1) (4-frame 16/32/48/256 px, alpha-verified). The `<AvaloniaResource>` glob landed in v1.7.0 (#100).
+
 The same `.ico` file feeds two unrelated Windows surfaces through two independent delivery channels. Both channels must be wired or the `.ico` will only show up in one place.
 
 | Surface | Source | Mechanism |

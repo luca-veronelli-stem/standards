@@ -146,6 +146,30 @@ Describe 'apply-repo-standard.ps1 (smoke)' {
             -Because 'binary copy must preserve the SVG byte-for-byte (no LF normalization, no placeholder substitution)'
     }
 
+    It 'copies the Stem app-icon .ico byte-identical into the per-app GUI project' {
+        # App-icon assets ship as binary (issue #105): `.ico` is in
+        # $noSubstituteExtensions (has been since the rollout script was
+        # first written) so the rollout copies the multi-frame icon
+        # byte-for-byte. The positive variant is a representative sample --
+        # if it lands byte-identical, the mono-white sibling follows the
+        # same code path. Pairs with the DESIGN_SYSTEM "App-icon wiring"
+        # recipe: the .ico bytes must reach the adopted repo unchanged for
+        # <ApplicationIcon> (PE resource block) and WindowIcon(stream)
+        # (avares://) to render crisp multi-frame icons.
+        $appIconsDir = Join-Path $script:target 'src/SmokeApp.GUI/Resources/branding/app-icons'
+        $appIconsDir | Should -Exist
+
+        $sourceIco = Resolve-Path (Join-Path $PSScriptRoot `
+            '../../shared/templates/archetypes/A/src/{{App}}.GUI/Resources/branding/app-icons/stem-app-icon-positive.ico')
+        $destIco   = Join-Path $appIconsDir 'stem-app-icon-positive.ico'
+        $destIco | Should -Exist
+
+        $srcHash  = (Get-FileHash -Path $sourceIco -Algorithm SHA256).Hash
+        $destHash = (Get-FileHash -Path $destIco   -Algorithm SHA256).Hash
+        $destHash | Should -Be $srcHash `
+            -Because 'binary copy must preserve the .ico byte-for-byte (multi-frame layout + alpha plane intact)'
+    }
+
     It 'lays down the archetype A greenfield scaffold (slnx + Core + GUI + Tests)' {
         # The scaffold is what makes the bootstrap PR green on CI without
         # a hand-rolled follow-up: rollout emits Core + GUI + Tests + .slnx,
