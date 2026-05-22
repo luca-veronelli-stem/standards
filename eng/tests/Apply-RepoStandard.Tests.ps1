@@ -146,12 +146,13 @@ Describe 'apply-repo-standard.ps1 (smoke)' {
             -Because 'binary copy must preserve the SVG byte-for-byte (no LF normalization, no placeholder substitution)'
     }
 
-    It 'lays down the archetype A greenfield scaffold (slnx + Core + Tests)' {
+    It 'lays down the archetype A greenfield scaffold (slnx + Core + GUI + Tests)' {
         # The scaffold is what makes the bootstrap PR green on CI without
-        # a hand-rolled follow-up: rollout emits Core + Tests + .slnx, dotnet-ci
-        # finds them, build/restore/test succeed.
+        # a hand-rolled follow-up: rollout emits Core + GUI + Tests + .slnx,
+        # dotnet-ci finds them, build/restore/test succeed.
         $slnx = Get-Content (Join-Path $script:target 'Stem.SmokeApp.slnx') -Raw
         $slnx | Should -Match 'src/SmokeApp\.Core/SmokeApp\.Core\.fsproj'
+        $slnx | Should -Match 'src/SmokeApp\.GUI/SmokeApp\.GUI\.fsproj'
         $slnx | Should -Match 'tests/SmokeApp\.Tests/SmokeApp\.Tests\.fsproj'
         $slnx | Should -Not -Match '\{\{App\}\}'
 
@@ -162,6 +163,20 @@ Describe 'apply-repo-standard.ps1 (smoke)' {
 
         $coreFs = Get-Content (Join-Path $script:target 'src/SmokeApp.Core/Placeholder.fs') -Raw
         $coreFs | Should -Match 'module Stem\.SmokeApp\.Core\.Placeholder'
+
+        $guiProj = Get-Content (Join-Path $script:target 'src/SmokeApp.GUI/SmokeApp.GUI.fsproj') -Raw
+        $guiProj | Should -Match '<RootNamespace>Stem\.SmokeApp\.GUI</RootNamespace>'
+        $guiProj | Should -Match '<AvaloniaResource Include="Resources/fonts/\*\.ttf" />'
+        $guiProj | Should -Match '<AvaloniaResource Include="Resources/branding/\*\*/\*\.svg" />'
+        $guiProj | Should -Match '<AvaloniaResource Include="Resources/branding/\*\*/\*\.png" />'
+        $guiProj | Should -Match '<AvaloniaResource Include="Resources/branding/app-icons/\*\.ico" />'
+        $guiProj | Should -Match '<PackageReference Include="Avalonia" />'
+        $guiProj | Should -Match '<PackageReference Include="Avalonia\.FuncUI" />'
+        $guiProj | Should -Match '<ProjectReference Include="\.\./SmokeApp\.Core/SmokeApp\.Core\.fsproj" />'
+        $guiProj | Should -Not -Match '\{\{App\}\}'
+
+        $guiFs = Get-Content (Join-Path $script:target 'src/SmokeApp.GUI/Placeholder.fs') -Raw
+        $guiFs | Should -Match 'module Stem\.SmokeApp\.GUI\.Placeholder'
 
         $testsProj = Get-Content (Join-Path $script:target 'tests/SmokeApp.Tests/SmokeApp.Tests.fsproj') -Raw
         $testsProj | Should -Match '<RootNamespace>Stem\.SmokeApp\.Tests</RootNamespace>'

@@ -212,6 +212,8 @@ $bootstrapOnlyFiles = @(
     'Stem.{{App}}.slnx',
     'src/{{App}}.Core/{{App}}.Core.fsproj',
     'src/{{App}}.Core/Placeholder.fs',
+    'src/{{App}}.GUI/{{App}}.GUI.fsproj',
+    'src/{{App}}.GUI/Placeholder.fs',
     'tests/{{App}}.Tests/{{App}}.Tests.fsproj',
     'tests/{{App}}.Tests/PlaceholderTests.fs'
 )
