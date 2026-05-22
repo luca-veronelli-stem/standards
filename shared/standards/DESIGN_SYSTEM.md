@@ -242,6 +242,50 @@ Per-app, `Branding.division` (defined above) selects which division's brand mark
 
 **Stem France.** The Stem France filiale (tavolas 14–15, 26–27, 46–50) is intentionally not shipped in v1.6.0. The `Branding.Division.France` case continues to render `BluFrance` as a badge colour, but no France brand-mark assets exist under `branding/` yet. A future bump will land them when the first France-targeted app earns its keep.
 
+## App-icon wiring (archetype A, Windows)
+
+The same `.ico` file feeds two unrelated Windows surfaces through two independent delivery channels. Both channels must be wired or the `.ico` will only show up in one place.
+
+| Surface | Source | Mechanism |
+| --- | --- | --- |
+| `.exe` shell icon (Explorer, file thumbnails, taskbar pin to the binary) | `Resources/branding/app-icons/stem-app-icon-positive.ico` | `<ApplicationIcon>` MSBuild property — bakes the icon into the PE resource block at build time |
+| Title-bar + taskbar (running window) | Same `.ico`, via `avares://` | `<AvaloniaResource>` glob (per-app `.fsproj`) + `WindowIcon(stream)` at runtime |
+| Alt-Tab thumbnail | Same `.ico`, via `avares://` | Same as title-bar — Windows picks the 256 px frame from the multi-frame `.ico` |
+
+```xml
+<!-- Stem.<App>.GUI/Stem.<App>.GUI.fsproj -->
+<PropertyGroup>
+    <ApplicationIcon>Resources/branding/app-icons/stem-app-icon-positive.ico</ApplicationIcon>
+</PropertyGroup>
+
+<ItemGroup>
+    <!-- Plus the fonts / brand-marks globs (see Logo above). The `.ico` glob
+         was added to the archetype A scaffold so the runtime channel resolves
+         out of the box. -->
+    <AvaloniaResource Include="Resources/branding/app-icons/*.ico" />
+</ItemGroup>
+```
+
+```fsharp
+open System
+open Avalonia.Controls
+open Avalonia.Platform
+
+let private appIconUri =
+    Uri "avares://Stem.<App>.GUI/Resources/branding/app-icons/stem-app-icon-positive.ico"
+
+let windowIcon () : WindowIcon =
+    use stream = AssetLoader.Open appIconUri
+    WindowIcon stream
+
+// in the MainWindow constructor (or wherever the Window is built):
+this.Icon <- windowIcon ()
+```
+
+**Don't** call `WindowIcon(Bitmap(stream))` against a single oversize PNG (e.g. the 2134 × 2134 agency master). Skia downsamples a 2000+ px raster to a 16 px target in one step, which aliases visibly on the title bar and taskbar. The multi-frame `.ico` (16 / 32 / 48 / 256 px) lets Windows pick the matching pre-rendered frame per surface — crisp at every size.
+
+The `.ico` glob (`Resources/branding/app-icons/*.ico`) is part of the scaffold's [`<AvaloniaResource>` ItemGroup](#logo) so the avares:// channel resolves immediately on bootstrap. `<ApplicationIcon>` stays per-app — different apps may want to point at different `.ico` files under `app-icons/`.
+
 ## Spacing
 
 A 4-pt grid spans the whole app. Use named constants from a per-app `Spacing` module — no magic numbers in the view DSL.
