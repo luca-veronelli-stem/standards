@@ -37,7 +37,7 @@ module Stem.<App>.GUI.Brand
 open Avalonia.Media
 
 // Primary (corporate identity, all divisions)
-let BluStem        = Color.Parse "#004682"   // Pantone 2154 C
+let BluStem        = Color.Parse "#004483"   // Pantone 2154 C
 
 // Blu Stem sanctioned tints
 let BluStem30      = Color.Parse "#B1C9F8"   // Pantone 658 C — icon tint paired with Blu Stem
@@ -210,7 +210,7 @@ Resources/branding/
     └── stem-app-icon-mono-white.{svg,png}
 ```
 
-Per-app, `Branding.division` (defined above) selects which division's brand mark to render. The fill colour of every positive SVG is **`#004483`** — the agency's authoritative Blu Stem for the brand mark. This is one hex step off the palette token (`BluStem = #004682`); both values approximate Pantone 2154 C and the gap is small enough not to read as a colour change in a rendered surface, but the palette will likely realign on a follow-up bump. Don't tint or recolour the SVG fills per-app.
+Per-app, `Branding.division` (defined above) selects which division's brand mark to render. The fill colour of every positive SVG is **`#004483`** — the agency's authoritative Blu Stem for the brand mark, matching the palette token (`BluStem = #004483`) per Pantone 2154 C. Don't tint or recolour the SVG fills per-app.
 
 **Symbol-only standalone.** Tavola 21 of the brand manual sanctions the simbolo as a standalone mark when the full lockup is too dense for the surface (favicons, small toolbar slots, watermark stamps). Views may use anything under `symbols/` without pairing it to a `brand-marks/` lockup; both directories are first-class.
 
@@ -356,7 +356,7 @@ Each severity maps to a token from `Brand.Semantic`:
 
 | Severity | Token | Hex | Source |
 | --- | --- | --- | --- |
-| `Info` | `Brand.Semantic.Info` | `#004682` | brand `BluStem` (Pantone 2154 C) |
+| `Info` | `Brand.Semantic.Info` | `#004483` | brand `BluStem` (Pantone 2154 C) |
 | `Success` | `Brand.Semantic.Success` | `#16A34A` | software-derived — distinct from `VerdeEMS` to prevent division-color collision |
 | `Warning` | `Brand.Semantic.Warning` | `#D97706` | software-derived — distinct from `GialloCommercialVehicles` to prevent division-color collision |
 | `Error` | `Brand.Semantic.Error` | `#E40032` | brand `RossoAlert` (Pantone 185 C — sanctioned alert color) |
