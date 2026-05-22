@@ -174,13 +174,33 @@ let h1           = 28.0    // page title
 let display      = 40.0    // empty-state hero text
 ```
 
-**Bundling:** ship Poppins in `Resources/fonts/Poppins-*.ttf` (Regular, Medium, SemiBold, Bold, Light), referenced via `App.axaml`:
+**Bundling:** ship Poppins in `Resources/fonts/Poppins-*.ttf` (Regular, Medium, SemiBold, Bold, Light) and register the family as the default at `AppBuilder` time in `Program.fs`:
 
-```xml
-<Application.Resources>
-    <FontFamily x:Key="StemFontFamily">avares://Stem.&lt;App&gt;.GUI/Resources/fonts/#Poppins</FontFamily>
-</Application.Resources>
+```fsharp
+// {{App}}.GUI/Program.fs
+open Avalonia
+open Avalonia.Media
+open System
+
+[<EntryPoint; STAThread>]
+let main argv =
+    AppBuilder
+        .Configure<App>(fun () -> App())
+        .UsePlatformDetect()
+        .With(FontManagerOptions(DefaultFamilyName =
+            "avares://Stem.<App>.GUI/Resources/fonts/#Poppins"))
+        .StartWithClassicDesktopLifetime(argv)
 ```
+
+`FontManagerOptions` lives in **`Avalonia.Media`**, not `Avalonia.Media.Fonts` — the namespace mistake is the first thing autocomplete suggests.
+
+- *For XAML hosts (archetype B / hosted scenarios).* The same family resolves via an `Application.Resources` entry, kept as a sub-form rather than the default:
+
+  ```xml
+  <Application.Resources>
+      <FontFamily x:Key="StemFontFamily">avares://Stem.&lt;App&gt;.GUI/Resources/fonts/#Poppins</FontFamily>
+  </Application.Resources>
+  ```
 
 The Stem-Regular custom font from the brand manual is **not** used in software — it is reserved for division wordmarks inside the print/marketing brand mark and ships as part of the corporate logo SVG (rendered, not loaded as a font).
 
