@@ -34,7 +34,9 @@ jobs:
           fetch-depth: 0
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v5
+        # See dotnet-ci.yml: tag-pinned to v5.1.0 for supply-chain posture,
+        # adopted on 2026-05-26 during a GitHub Actions/Pages incident.
+        uses: actions/setup-dotnet@v5.1.0
         with:
           global-json-file: global.json
 
