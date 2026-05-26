@@ -14,6 +14,11 @@ The version number is the git tag (`v1.0.0`, `v1.1.0`, …). There is no version
 
 Historical entries from `v1.0.0` through `v1.3.3` were written while this repo was bundled with the agent-config under the name `llm-settings`. From this point forward `standards` is scoped to the STEM standards alone; the agent-config wiring lives in [`luca-veronelli-stem/llm-settings`](https://github.com/luca-veronelli-stem/llm-settings) (unversioned, HEAD-only).
 
+## [1.9.1] - 2026-05-26
+
+### Changed
+- `.github/workflows/dotnet-ci.yml`, `release-archetype-a.yml`, `release-archetype-b.yml`: tag-pinned `actions/setup-dotnet` from floating `@v5` to `@v5.1.0` (SHA `baa11fbfe1d6520db94683bd5c7a3818018e4309`) for supply-chain posture — every CI run now resolves to the same `setup-dotnet` SHA, and upgrades become explicit Dependabot PRs. Adopted on 2026-05-26 after a GitHub Actions/Pages incident caused codeload fetches of the `@v5` head SHA (`c2fa09f4...`, the dependabot minimatch bump from 2026-02-26) to fail intermittently from runners with `##[error]An action could not be found at the URI 'https://codeload.github.com/actions/setup-dotnet/tar.gz/c2fa09f4...'`, while the same URL still served HTTP 200 to public probes (reproduced four times in `button-panel-tester` PR [#147](https://github.com/luca-veronelli-stem/button-panel-tester/pull/147) during the incident window). Floating `@v5` resumed working once the platform incident cleared — this is supply-chain hardening, not a fix for a `setup-dotnet`-specific defect. The pin is intentionally a tag (not raw SHA) so SemVer is observable to Dependabot; revisit on the next `setup-dotnet` release. Applied identically to both archetype release workflows so all three CI/release paths use the same pinning strategy. Adopters pick up the pin on next CI run after bumping `Standard version` to `v1.9.1`.
+
 ## [1.9.0] - 2026-05-22
 
 ### Added

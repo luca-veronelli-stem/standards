@@ -31,7 +31,16 @@ jobs:
           fetch-depth: 0
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v5
+        # Tag-pinned to v5.1.0 (SHA baa11fb...) for supply-chain posture:
+        # every CI run resolves to the same setup-dotnet SHA, and upgrades
+        # become explicit Dependabot PRs. Adopted on 2026-05-26 after a
+        # GitHub Actions/Pages incident caused codeload fetches of @v5 to
+        # fail intermittently with `An action could not be found at the URI
+        # ...c2fa09f4...` -- collateral from the platform outage, not a
+        # defect in @v5 itself; floating @v5 resumed working once the
+        # incident cleared. Tag (not raw SHA) keeps SemVer observable for
+        # Dependabot. Revisit on the next setup-dotnet release.
+        uses: actions/setup-dotnet@v5.1.0
         with:
           global-json-file: global.json
 
