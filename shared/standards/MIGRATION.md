@@ -96,6 +96,27 @@ Per-repo adoption PR (`chore: bump standards to v1.9.0` — separate from the so
 
 `stem-device-manager` v0.4.3 (worktree at `C:\Users\LucaV\Source\Repos\stem-device-manager-v0.4.3`, branch `fix/0.4.3-diagnostics`, paused awaiting this standard) is the first reference adopter. Adoption may bundle the standards bump and the path-relocation work into one PR or split them — that's a v0.4.3-session decision, not a v1.9.0-PR decision.
 
+## Rollout phase for v1.10.0 — `category-filter` input on the reusable `dotnet-ci.yml`
+
+`v1.10.0` adds a `category-filter` input on `on.workflow_call.inputs` in `.github/workflows/dotnet-ci.yml`, threaded through both `dotnet test` invocations (Linux per-project loop + Windows full leg), with a default of `Category!=Hardware`. Closes [#113](https://github.com/luca-veronelli-stem/standards/issues/113).
+
+The motivation is local-vs-CI gate drift: the local pre-push gate (per `workflow` rule + `CI.md`) already filters out xUnit `[<Trait("Category", "Hardware")>]` tests via `--filter "Category!=Hardware"`, but the reusable CI workflow ran `dotnet test` with no filter, so hardware tests executed on hosted runners and failed for lack of the device. The first downstream incident was [`button-panel-tester` PR #122](https://github.com/luca-veronelli-stem/button-panel-tester/pull/122) (`T043`), which shipped a short-term `[<Fact(Skip = "...#112")>]` workaround — fragile because `Skip` overrides the filter even on a developer's bench where the hardware is plugged in.
+
+Backward-compatible at both surfaces:
+- Existing test suites with no `Category` trait match the negation and stay green.
+- Adopter caller stubs need **no** edit — the empty `with:` block still inherits the default filter once the `@vX.Y.Z` pin is bumped.
+
+Per-repo adoption PR (`chore: bump standards to v1.10.0`):
+
+1. Re-run `eng/apply-repo-standard.ps1 -StandardVersion v1.10.0`. The diff is the single `@v1.9.x → @v1.10.0` pin bump in `.github/workflows/ci.yml` (the CI caller stub). No other workflow churn; no standard-content churn beyond the `CI.md` "Hardware-test exclusion" section already inlined under `docs/Standards/`.
+2. Bump the per-repo `CLAUDE.md` `**Standard version:**` line to `v1.10.0`.
+3. Update `state/repos.md` to reflect the bump.
+4. Single-commit PR.
+
+No source-code action required at adoption time. Adopters that already have a `Skip = "...#NNN"` workaround on hardware-traited tests should remove it in a follow-up PR — the trait filter now covers exclusion on CI, and `Skip` would defeat the trait filter on developer benches. `button-panel-tester` `PcanLifecycleTests.fs` (the two `[<Fact>]`s touched in `76cacef`) is the first such cleanup.
+
+Adopters running their own self-hosted hardware-equipped runner override the input from their caller stub (`with: category-filter: ""` to include hardware tests, or a custom filter for a dedicated hardware job — example in `CI.md` -> "Hardware-test exclusion").
+
 ## Rollout phase for v1.5.1 — F# runtime restoration, greenfield scaffold, `lean/`-vs-`specs/` clarification
 
 `v1.5.1` ships three first-adopter gap fixes uncovered while bootstrapping `button-panel-tester` against `v1.5.0`:

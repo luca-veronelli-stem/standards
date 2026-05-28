@@ -14,6 +14,15 @@ The version number is the git tag (`v1.0.0`, `v1.1.0`, …). There is no version
 
 Historical entries from `v1.0.0` through `v1.3.3` were written while this repo was bundled with the agent-config under the name `llm-settings`. From this point forward `standards` is scoped to the STEM standards alone; the agent-config wiring lives in [`luca-veronelli-stem/llm-settings`](https://github.com/luca-veronelli-stem/llm-settings) (unversioned, HEAD-only).
 
+## [1.10.0] - 2026-05-28
+
+### Added
+- `.github/workflows/dotnet-ci.yml`: new `category-filter` input on `on.workflow_call.inputs`, threaded through both `dotnet test` invocations (Linux per-project loop + Windows full leg), with a default of `Category!=Hardware`. Closes [#113](https://github.com/luca-veronelli-stem/standards/issues/113). Closes the local-vs-CI gate drift documented in the issue: the local pre-push gate (per the `workflow` rule + `CI.md`) already filters out `[<Trait("Category", "Hardware")>]` tests via `--filter "Category!=Hardware"`, but the reusable CI workflow ran `dotnet test` with no filter, so hardware tests executed on hosted runners and failed for lack of the physical device. First downstream incident was [`button-panel-tester` PR #122](https://github.com/luca-veronelli-stem/button-panel-tester/pull/122) (`T043`), which shipped a short-term `[<Fact(Skip = "...#112")>]` workaround — fragile because `Skip` overrides the filter even on a developer's bench where the hardware is plugged in. Backward-compatible at both surfaces: existing suites with no `Category` trait match the negation and stay green; adopter caller stubs need **no** edit — the empty `with:` block still inherits the default once the `@vX.Y.Z` pin is bumped. Adopters running a self-hosted hardware-equipped runner override the input from their caller stub (`with: category-filter: ""` to include hardware tests, or a custom filter for a dedicated hardware job — example in `CI.md` -> "Hardware-test exclusion").
+
+### Changed
+- `shared/standards/CI.md` gains a new "Hardware-test exclusion" section codifying the `Trait("Category", "Hardware")` annotation (F# and C# forms), the `category-filter` input shape, the unchanged-stub upgrade path, the override pattern for self-hosted hardware runners, and the rule that `Skip = "..."` is never a substitute for the trait filter. The two `dotnet test` snippets in the existing "Test reporting" section are updated to show `--filter "${{ inputs.category-filter }}"` so the documented shape matches the reusable workflow's actual command line. Doc-only — no contract change to test reporting or release; standard's stability marker stays at `v1.0.0`.
+- `shared/standards/MIGRATION.md` gains a `Rollout phase for v1.10.0` section: single-commit per-repo bump PR (re-run `apply-repo-standard.ps1 -StandardVersion v1.10.0` → bump `CLAUDE.md` `**Standard version:**` → update `state/repos.md`), plus a note that adopters carrying a `Skip = "...#NNN"` workaround on hardware-traited tests should remove it in a follow-up PR now that the trait filter covers exclusion on CI.
+
 ## [1.9.1] - 2026-05-26
 
 ### Changed
