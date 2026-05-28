@@ -70,12 +70,12 @@ The Linux leg builds only `net10.0`. The Windows leg builds both `net10.0` and `
       case "$proj" in
         *.Tests.Windows.*|*.Tests.Linux.*) continue ;;
       esac
-      dotnet test "$proj" --framework net10.0 --configuration Release --no-build --logger "trx;LogFileName=test-results.trx"
+      dotnet test "$proj" --framework net10.0 --configuration Release --no-build --filter "${{ inputs.category-filter }}" --logger "trx;LogFileName=test-results.trx"
     done
 
 - name: Test (full leg)
   if: runner.os == 'Windows'
-  run: dotnet test --configuration Release --no-build --logger "trx;LogFileName=test-results.trx"
+  run: dotnet test --configuration Release --no-build --filter "${{ inputs.category-filter }}" --logger "trx;LogFileName=test-results.trx"
 
 - name: Test report
   uses: dorny/test-reporter@v3
@@ -90,6 +90,76 @@ The Linux leg builds only `net10.0`. The Windows leg builds both `net10.0` and `
 Why the Linux leg loops: vstest cannot filter Windows-only-TFM assemblies via `--framework net10.0` at solution scope — given a `<App>.Tests.Windows` project that only targets `net10.0-windows`, the runner tries to load a `net10.0` output that does not exist and exits non-zero. The naming convention (TESTING) lets the workflow exclude those projects at the project layer instead.
 
 `if: always()` so failed tests still produce a report. `use-actions-summary: 'false'` opts back into the legacy Check Run sink — v3's default writes to `$GITHUB_STEP_SUMMARY` instead, which silently drops the per-OS Tests gate at PR level.
+
+## Hardware-test exclusion
+
+Tests that require physical hardware (CAN adapters, BLE radios, PCAN, serial dongles) are annotated with the xUnit `Category=Hardware` trait so they can be excluded on hosted runners that lack the device:
+
+```fsharp
+[<Fact; Trait("Category", "Hardware")>]
+let ``connects to a PEAK USB adapter`` () = ...
+```
+
+```csharp
+[Fact, Trait("Category", "Hardware")]
+public void ConnectsToBleRadio() { ... }
+```
+
+The local pre-push gate (per the `workflow` rule) passes `--filter "Category!=Hardware"`. From `v1.10.0`, the reusable `dotnet-ci.yml` accepts a matching input so the CI gate matches the local one without per-repo workaround:
+
+```yaml
+# .github/workflows/dotnet-ci.yml (reusable)
+on:
+  workflow_call:
+    inputs:
+      category-filter:
+        type: string
+        required: false
+        default: "Category!=Hardware"
+
+# ...
+
+      - name: Test (cross-platform leg)
+        # ...
+        run: |
+          # ...
+          dotnet test "$proj" ... --filter "${{ inputs.category-filter }}" ...
+
+      - name: Test (full leg)
+        if: runner.os == 'Windows'
+        run: dotnet test ... --filter "${{ inputs.category-filter }}" ...
+```
+
+Adopter stubs need no change to pick up the default — the empty `with:` block keeps inheriting `Category!=Hardware`:
+
+```yaml
+# .github/workflows/ci.yml (adopter caller stub, unchanged)
+jobs:
+  build:
+    uses: luca-veronelli-stem/standards/.github/workflows/dotnet-ci.yml@v1.10.0
+```
+
+Adopters running their own hardware-equipped runner — or that want to include hardware tests under a different gate — override the input from the stub:
+
+```yaml
+jobs:
+  build:
+    uses: luca-veronelli-stem/standards/.github/workflows/dotnet-ci.yml@v1.10.0
+    with:
+      category-filter: ""   # include everything
+
+  hardware:
+    # Self-hosted job that runs hardware tests in isolation.
+    runs-on: [self-hosted, hardware]
+    steps:
+      - uses: actions/checkout@v6
+      # ...
+      - run: dotnet test --filter "Category=Hardware"
+```
+
+Why the default is backward-compatible: `Category!=Hardware` matches every test that does **not** carry the trait, so existing suites without any `Category` annotation stay green. The first hardware-traited test an adopter writes is excluded silently — no `Skip = "...#NNN"` workaround needed in source.
+
+The bookkeeping rule: once a test gets `Trait("Category", "Hardware")`, never substitute `Skip = "..."` for the same exclusion intent — the filter is the contract, and `Skip` overrides the filter (so the test stays skipped even on a developer's bench where the hardware is plugged in).
 
 ## Release workflow — archetype A
 
