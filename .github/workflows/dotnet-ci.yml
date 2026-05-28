@@ -10,6 +10,20 @@ name: dotnet-ci (reusable)
 
 on:
   workflow_call:
+    inputs:
+      category-filter:
+        description: >
+          xUnit category filter passed to `dotnet test --filter`. Defaults
+          to `Category!=Hardware` so tests annotated `[<Trait("Category",
+          "Hardware")>]` (or the C# `[Trait("Category", "Hardware")]`
+          equivalent) are excluded on hosted runners that lack the
+          physical hardware. Adopters running their own hardware-equipped
+          runner can pass an empty string (or a different filter) to
+          include them. See `shared/standards/CI.md` -> "Hardware-test
+          exclusion".
+        type: string
+        required: false
+        default: "Category!=Hardware"
 
 permissions:
   contents: read
@@ -116,12 +130,12 @@ jobs:
             case "$proj" in
               *.Tests.Windows.*|*.Tests.Linux.*) continue ;;
             esac
-            dotnet test "$proj" --framework net10.0 --configuration Release --no-build --logger "trx;LogFileName=test-results.trx"
+            dotnet test "$proj" --framework net10.0 --configuration Release --no-build --filter "${{ inputs.category-filter }}" --logger "trx;LogFileName=test-results.trx"
           done
 
       - name: Test (full leg)
         if: runner.os == 'Windows'
-        run: dotnet test --configuration Release --no-build --logger "trx;LogFileName=test-results.trx"
+        run: dotnet test --configuration Release --no-build --filter "${{ inputs.category-filter }}" --logger "trx;LogFileName=test-results.trx"
 
       - name: Test report
         uses: dorny/test-reporter@v3
