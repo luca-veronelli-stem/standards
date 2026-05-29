@@ -106,7 +106,7 @@ Tags are git tags (`v1.0.0`, `v1.1.0`, …). Each adopted repo pins to a specifi
 - **Minor** — new standard, new template, or non-breaking change to an existing one.
 - **Patch** — bug fixes, typos, clarifications, internal refactors. No change to documented contracts.
 
-See [`MIGRATION.md`](./shared/standards/MIGRATION.md) for the per-version bump procedure.
+Deciding *which* level a change is depends on the adopter contract, not the magnitude of the diff: after an adopter re-runs `apply-repo-standard.ps1`, is previously-compliant code forced to change? If yes → major; if no → minor/patch. See [Choosing the bump level](./shared/standards/MIGRATION.md#choosing-the-bump-level) for the enumerated triggers and worked examples, and [`MIGRATION.md`](./shared/standards/MIGRATION.md) for the per-version bump procedure.
 
 ## Related repos
 
