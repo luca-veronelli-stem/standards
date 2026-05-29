@@ -206,6 +206,48 @@ Append a section per repo as adoption progresses:
 
 The migration log is **inside this standard** in this repo, so a single file shows the cross-repo state. The repo-side `CHANGELOG.md` records the structural change as a separate entry.
 
+## Choosing the bump level
+
+The major/minor/patch definitions at the top of the `CHANGELOG.md` and in the README "Versioning" section are deliberately terse. This section is the decision procedure behind them, framed around the one thing that actually matters downstream: **the adopter contract**.
+
+**Decision rule.** Picture an adopter who bumps the `**Standard version:**` pin in their `CLAUDE.md` and re-runs `apply-repo-standard.ps1` (the *bump-and-reroll*). Ask one question:
+
+> After the re-roll, is previously-compliant code or config *forced* to change — or does the build break — with no further opt-in on the adopter's side?
+
+- **Yes → major.** The change reaches into the adopter's tree and breaks something that was fine before.
+- **No → minor or patch.** The adopter picks up new guidance, a new file, or a new opt-in capability, but nothing they already had stops working.
+
+This is why the minor number can climb indefinitely. SemVer here is **event-driven**, not calendar- or magnitude-driven: a high minor (`v1.11.0`, `v1.12.0`) does not mean "surely it's time for a major." Major is reserved for *forced migration*, and most standards work is additive. The confusion this section exists to prevent surfaced during the [#94](https://github.com/luca-veronelli-stem/standards/issues/94) review, where a high minor read as "overdue for a major" when in fact nothing breaking had ever shipped. There has never been a `v2.0.0` — every minor/patch example below is a real release; the major triggers are illustrative of what *would* force the jump.
+
+### Major — forced adopter churn
+
+A change is major when the bump-and-reroll forces source/config churn or breaks the build with no opt-in. Triggers:
+
+- **Tightening or reversing an existing rule** so that code which was compliant becomes a violation — turning a "prefer" into a "must," or flipping a documented allowance into a ban. A clean adopter now fails its own gate after the re-roll.
+- **Adding a `BannedSymbols.txt` entry adopters consume.** `BannedApiAnalyzers` is wired in at solution level (see [`BUILD_CONFIG.md`](./BUILD_CONFIG.md) / [`MODULE_SEPARATION.md`](./MODULE_SEPARATION.md)); shipping a new banned symbol that an adopter currently calls turns their next build red with no code change on their side.
+- **Changing an enforced default** — moving the target framework `net10.0 → net11.0`, or changing an archetype's default visibility posture (the archetype B "demote non-kit types to `internal`" rule in [`VISIBILITY.md`](./VISIBILITY.md)). The re-roll rewrites a toolchain file and the adopter's existing code must adapt.
+- **Renaming or removing a standard or template.** The inline `docs/Standards/<NAME>.md` an adopter references disappears or moves; cross-links and any constitution/spec text pointing at it break.
+- **Changing the `docs/Standards/` layout or the `.stem-standard.lock` format.** Both are consumed mechanically — the rollout script reads/writes the lock, adopters grep the inline tree. A format change forces a coordinated migration rather than a silent re-roll.
+- **Redefining an archetype's required project shape.** Changing the projects/folders an archetype *must* have (per [`REPO_STRUCTURE.md`](./REPO_STRUCTURE.md)) forces existing adopters of that archetype to restructure.
+
+When a real major lands, follow the "Major version bumps in `standards`" procedure below — there is no forced upgrade; a repo may pin at `v1.x` indefinitely.
+
+### Minor — additive, nothing breaks
+
+The adopter gains something; nothing they had stops working. The re-roll adds files or refreshes guidance, and an adopter who ignores the new capability is unaffected.
+
+- **New standard → minor.** `v1.5.0` (the `GUI` + `DESIGN_SYSTEM` + `APP_SHELL` trio) and `v1.9.0` (`APP_DATA`) each added a standard without touching the existing contracts.
+- **Additive guidance to an existing standard → minor.** `v1.12.0` ([#94](https://github.com/luca-veronelli-stem/standards/issues/94), F# shape coverage) added F#-specific notes across the content standards — nothing previously compliant became non-compliant, which is exactly what made it a minor rather than a major. This ticket ([#119](https://github.com/luca-veronelli-stem/standards/issues/119)) is the same shape: it documents the contract, it does not change it.
+- **Backward-compatible workflow change → minor.** `v1.10.0` added the `category-filter` CI input (default `Category!=Hardware`; an empty `with:` block still inherits it, so caller stubs need no edit) and `v1.8.0` added the self-extracting-`.exe` publish flag — both change behavior only for adopters who opt in or re-tag, and existing stubs keep working untouched.
+
+### Patch — no contract change
+
+Bug fixes that restore intended behavior, plus typos, clarifications, and internal refactors — no documented contract moves.
+
+- The `v1.5.1` `FSharp.Core` CPM restoration ([#74](https://github.com/luca-veronelli-stem/standards/issues/74)) re-added a dropped package entry so F# test discovery worked again.
+- The `v1.4.0` `xunit 2.9.4 → 2.9.3` pin fix ([#64](https://github.com/luca-veronelli-stem/standards/issues/64)) corrected a version that never existed on nuget.org.
+- The `v1.2.1` template-placeholder cleanup replaced render-visible hints that shipped unfilled into adopted repos.
+
 ## Major version bumps in `standards`
 
 When `standards` releases a major (`v2.0.0`), the procedure is:
