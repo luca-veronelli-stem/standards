@@ -63,6 +63,25 @@ See [`shared/standards/REPO_STRUCTURE.md`](./shared/standards/REPO_STRUCTURE.md)
 | `APP_SHELL` | v1.5 | Canonical view catalogue (Settings / About / LanguagePicker / NotificationCenter / ConnectionStatus); typed `ShellSlots` pattern; Navigation locked to left sidebar |
 | `APP_DATA` | v1.9 | `<LocalApplicationData>\Stem\<AppName>\` per-user data root; `logs/`/`cache/`/`credentials/`/`db/` sub-folders; transient migration helper for legacy roots |
 
+## F# coverage
+
+Archetype A is F#-first, so every standard with an F#-specific dimension carries an `## F#` section answering the constructs that have no 1:1 C# analogue — **modules**, **discriminated unions**, and **computation expressions**. Index:
+
+| Standard | F# shape answered | Section |
+| --- | --- | --- |
+| `LOGGING` | Module logger (no `T` for `ILogger<T>`) → stable category via `ILoggerFactory.CreateLogger("<cat>")` | `## Category` + `## F#` |
+| `VISIBILITY` | DU case visibility (cases inherit the type's); module visibility; BannedSymbols vs DU ctors | `## F#` |
+| `THREAD_SAFETY` | Module-scope `let mutable` = global state; `MailboxProcessor` / `Channel<'T>` | `## F#` |
+| `ERROR_HANDLING` | `Result<'T,'TError>`; the error DU *is* the hierarchy (vs the ≥3 exception threshold) | `## F#` |
+| `CANCELLATION` | `task{}`/`async{}` token flow; `reraise()` unavailable after `await` in `task{}` | `## F#` |
+| `CONFIGURATION` | F# record binding (`[<CLIMutable>]` / `mutable`; immutable + `validate` in libraries) | `## F#` |
+| `EVENTARGS` | F# events (`IEvent<_,_>` / `Event<_>` + record payload) | `## F# events` |
+| `COMMENTS` | `///` auto-wrap; records/DUs/modules follow the same coverage rules | `## F#` |
+| `REPO_STRUCTURE` | Files organise by module/namespace; no one-type-per-file rule | `## Naming rules` |
+| `LANGUAGE` · `TESTING` · `MODULE_SEPARATION` · `BUILD_CONFIG` | F# is the default throughout; no shape-specific carve-out needed | — |
+
+Language-agnostic standards (`PORTABILITY`, `CI`, `MIGRATION`) have no F# dimension.
+
 ## Adopting these standards in a repo
 
 First-time bootstrap:
