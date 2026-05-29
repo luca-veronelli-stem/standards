@@ -10,19 +10,42 @@ updates:
       timezone: Europe/Rome
     open-pull-requests-limit: 10
     groups:
-      avalonia:
+      # Split from a single "Avalonia*" group: FuncUI has its own release
+      # cadence and its own compat dependency on Avalonia versions, so a
+      # FuncUI bump must not ride with an Avalonia-runtime bump. minor+patch
+      # only on every group keeps major bumps as standalone PRs, so a safe
+      # patch never sits red behind a breaking major (see bpt#123).
+      avalonia-runtime:
         patterns:
-          - "Avalonia*"
+          - "Avalonia"
+          - "Avalonia.*"
+        exclude-patterns:
+          - "Avalonia.FuncUI*"
+        update-types:
+          - minor
+          - patch
+      avalonia-funcui:
+        patterns:
+          - "Avalonia.FuncUI*"
+        update-types:
+          - minor
+          - patch
       testing:
         patterns:
           - "xunit*"
           - "FsCheck*"
           - "Microsoft.NET.Test.Sdk"
           - "coverlet.*"
+        update-types:
+          - minor
+          - patch
       microsoft-extensions:
         patterns:
           - "Microsoft.Extensions.*"
           - "Microsoft.EntityFrameworkCore*"
+        update-types:
+          - minor
+          - patch
 
   - package-ecosystem: github-actions
     directory: "/"
