@@ -117,6 +117,21 @@ No source-code action required at adoption time. Adopters that already have a `S
 
 Adopters running their own self-hosted hardware-equipped runner override the input from their caller stub (`with: category-filter: ""` to include hardware tests, or a custom filter for a dedicated hardware job — example in `CI.md` -> "Hardware-test exclusion").
 
+## Rollout phase for v1.11.0 — Dependabot grouping split + minor/patch restriction
+
+`v1.11.0` reshapes `shared/templates/.github/dependabot.yml`: the single `avalonia` group splits into `avalonia-runtime` (`Avalonia` + `Avalonia.*`, excluding `Avalonia.FuncUI*`) and `avalonia-funcui` (`Avalonia.FuncUI*`), and every NuGet group (`avalonia-runtime`, `avalonia-funcui`, `testing`, `microsoft-extensions`) gains `update-types: [minor, patch]`. Closes [#114](https://github.com/luca-veronelli-stem/standards/issues/114).
+
+The motivation is grouped-PR risk bundling. With one `Avalonia*` group and no `update-types` filter, Dependabot could pack a safe patch and a breaking major into one PR — when [`button-panel-tester` PR #123](https://github.com/luca-veronelli-stem/button-panel-tester/pull/123) (2026-05-25) bundled FuncUI `1.5.1 → 1.6.0`, Avalonia `11.3.7 → 12.0.3`, and `Avalonia.Diagnostics` patches, the whole PR turned red on FuncUI/Avalonia incompatibility and the patches that could have merged alone were blocked. Splitting FuncUI out (it has its own cadence and its own Avalonia compat dependency) and capping each group at minor/patch keeps majors as standalone, separately-reviewable PRs.
+
+Per-repo adoption PR (`chore: bump standards to v1.11.0`):
+
+1. Re-run `eng/apply-repo-standard.ps1 -StandardVersion v1.11.0`. The diff is the regenerated `.github/dependabot.yml` (the rollout overwrites it from the template). No source-code change, no other template churn.
+2. Bump the per-repo `CLAUDE.md` `**Standard version:**` line to `v1.11.0`.
+3. Update `state/repos.md` to reflect the bump.
+4. Single-commit PR.
+
+No source-code action required at adoption time. The first observable effect lands on the repo's next weekly Dependabot run: a major Avalonia (or any other group member's major) arrives as its own PR instead of poisoning a grouped bundle, and FuncUI bumps arrive separately from Avalonia-runtime bumps. To decline a specific major, comment `@dependabot ignore this major version` on the standalone PR (a per-repo decision — the template intentionally ships no `ignore` entries). Adopters whose `.github/dependabot.yml` has been hand-customised hit the local-edit guard and need `-Force` or a hand-merge (per the Pitfalls section).
+
 ## Rollout phase for v1.5.1 — F# runtime restoration, greenfield scaffold, `lean/`-vs-`specs/` clarification
 
 `v1.5.1` ships three first-adopter gap fixes uncovered while bootstrapping `button-panel-tester` against `v1.5.0`:
