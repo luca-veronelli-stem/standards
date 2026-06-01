@@ -54,7 +54,7 @@ jobs:
         # defect in @v5 itself; floating @v5 resumed working once the
         # incident cleared. Tag (not raw SHA) keeps SemVer observable for
         # Dependabot. Revisit on the next setup-dotnet release.
-        uses: actions/setup-dotnet@v5.1.0
+        uses: actions/setup-dotnet@v5.3.0
         with:
           global-json-file: global.json
 
