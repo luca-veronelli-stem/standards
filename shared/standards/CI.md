@@ -10,7 +10,7 @@ From `v1.4.0`, the workflows the rollout writes into an adopted repo are **calle
 | Workflow | Stub (in adopted repo) | Reusable body (this repo) | Trigger |
 | --- | --- | --- | --- |
 | **CI** | `.github/workflows/ci.yml` | `.github/workflows/dotnet-ci.yml` | push, PR, manual dispatch, weekly schedule |
-| **Mirror to Bitbucket** | `.github/workflows/mirror-bitbucket.yml` | `.github/workflows/mirror-bitbucket.yml` | push to `main` |
+| **Mirror to Bitbucket** | `.github/workflows/mirror-bitbucket.yml` | `.github/workflows/mirror-bitbucket.yml` | push to `main`, tag push (`v*.*.*`) |
 | **Release** (archetype A) | `.github/workflows/release.yml` | `.github/workflows/release-archetype-a.yml` | tag `v*.*.*` |
 | **Release** (archetype B) | `.github/workflows/release.yml` | `.github/workflows/release-archetype-b.yml` | tag `v*.*.*` |
 
@@ -192,6 +192,15 @@ Triggered on `v*.*.*` tag push. Steps:
 ## Mirror workflow
 
 Defined in `dual-remote.md` rule. From v1.4.0 the rollout writes a stub that calls `luca-veronelli-stem/standards/.github/workflows/mirror-bitbucket.yml@<version>` and supplies the per-repo Bitbucket slug as input plus the `BITBUCKET_SSH_KEY` secret. Skip for personal-account repos with no Bitbucket mirror (e.g. `standards`, `llm-settings`).
+
+From v1.14.0 the stub fires on **both** branch pushes to `main` and version-tag pushes (`on.push.tags: ['v*.*.*']`), and the reusable body branches on `github.ref_type`:
+
+- **Branch push to `main`** — `git push --follow-tags bitbucket HEAD:refs/heads/main`, mirroring the commit *and* every annotated tag reachable from `main` that the mirror is missing.
+- **Tag push** — `git push bitbucket "$REF:$REF"`, mirroring only the pushed tag ref. `bitbucket/main` is deliberately never updated from the detached tag checkout (pushing `HEAD:refs/heads/main` there would force the mirror's `main` back to the tagged commit).
+
+**Annotated vs lightweight.** `--follow-tags` carries **annotated** tags only. The release convention is annotated by construction — `softprops/action-gh-release` and `git tag -a` both create annotated tags — so `v*.*.*` release tags reach the mirror on the next `main` push even without a separate tag-push event. Lightweight tags are intentionally not followed; a repo that deliberately mirrors lightweight tags must switch the `main` path to `--tags` (which pushes *all* tags, reachable or not — use only when that is the intent). The explicit tag-push path mirrors whichever `v*.*.*` ref was pushed regardless of kind.
+
+First-run backfill: the first `main` push after a repo adopts v1.14.0 pushes every annotated tag reachable from `main` that the mirror lacks. Lightweight or unreachable tags need a one-time manual `git push git@bitbucket.org:stem-fw/<repo>.git --tags`.
 
 ## Bitbucket Pipelines stub
 
