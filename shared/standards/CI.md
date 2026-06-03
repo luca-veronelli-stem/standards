@@ -23,7 +23,7 @@ Triggers, concurrency, and permissions live in the per-repo stub (`.github/workf
 - **Triggers (stub):** `push` to `main`, `pull_request` against `main`, `workflow_dispatch`, weekly `schedule` cron (catches dependency drift on idle repos).
 - **Concurrency (stub):** `concurrency.group = ci-${{ github.ref }}`, `cancel-in-progress: true` — newer pushes cancel older runs on the same branch.
 - **Matrix (reusable):** `os: [ubuntu-latest, windows-latest]`. The Linux leg enforces portability; the Windows leg validates Windows-only drivers and any legacy `GUI.Windows` projects.
-- **Caching (reusable):** `~/.nuget/packages/` keyed on `Directory.Packages.props`; Lean `~/.elan/` keyed on `**/lean-toolchain` (Linux leg only — the toolchain is identical across OSes, so there is no value in doubling the cache + build on Windows). The recursive `**/` pattern handles both supported layouts: workspace-root (`./lean-toolchain`) and the sub-directory layout STEM apps use (`lean/lean-toolchain`).
+- **Caching (reusable):** `~/.nuget/packages/` keyed on `Directory.Packages.props`; Lean `~/.elan/` keyed on `**/lean-toolchain` (Linux leg only — the toolchain is identical across OSes, so there is no value in doubling the cache + build on Windows). The recursive `**/` pattern handles both supported layouts: workspace-root (`./lean-toolchain`) and the sub-directory layout STEM apps use (`lean/lean-toolchain`). Both cache steps carry `continue-on-error: true` — a cache restore is an optimization, never a correctness gate, so a transient cache-service error degrades to a cold restore instead of skipping Restore/Build/Test. Without it a failed cache step's implicit `success()` cascades to every downstream step lacking a status function, redding `main` with no real test failure (`dorny/test-reporter` then fails "No test report files were found" because no `.trx` was produced). See "Cache restore is non-fatal" below and #123.
 - **Steps (reusable):** checkout → setup-dotnet (from `global.json`) → restore → format check → build (Release) → test (Release). The Linux leg additionally runs `lake build` (working directory `./` or `./lean`, whichever holds `lean-toolchain`) when a Lean track is present — that gate enforces constitution Principle I (no `sorry`, no custom axioms) on every adopter PR.
 
 ## Format check is a hard gate (whitespace-only in CI)
@@ -55,12 +55,30 @@ The Linux leg builds only `net10.0`. The Windows leg builds both `net10.0` and `
   run: dotnet build --configuration Release   # picks up both TFMs
 ```
 
+## Cache restore is non-fatal
+
+A cache restore is an optimization, not a correctness gate. Both `actions/cache@v5` steps (NuGet, and the Linux-leg Lean toolchain) carry `continue-on-error: true`:
+
+```yaml
+- name: Cache NuGet packages
+  uses: actions/cache@v5
+  continue-on-error: true
+  with:
+    path: ~/.nuget/packages
+    key: ${{ runner.os }}-nuget-${{ hashFiles('**/Directory.Packages.props') }}
+    restore-keys: |
+      ${{ runner.os }}-nuget-
+```
+
+Why it is load-bearing: a GitHub Actions step `if:` that contains no status check function (`success()`, `failure()`, `always()`, `cancelled()`) carries an **implicit `success()`** — `if: runner.os == 'Windows'` is really `success() && runner.os == 'Windows'`. So when a cache step errors transiently (a cache-service hiccup, not a code fault), its conclusion is `failure`, `success()` flips to false, and every downstream step lacking a status function — Restore, Build, Test — is **skipped**. No `.trx` is produced, and `dorny/test-reporter` then fails with "No test report files were found", redding `main` even though no test failed. `continue-on-error: true` makes the failed step's *conclusion* `success` (its `outcome` still records the real `failure` for anyone inspecting it), so `success()` stays true and Build/Test run against a cold cache instead of being skipped. The Lean cache step gets the same guard because it, too, sits before Restore/Build/Test on the Linux leg, so a Lean-cache flake would skip them just the same. First incidents: `button-panel-tester` run `26628708854` (2026-05-29) and PR #178 (2026-06-03), both cleared by a no-op re-run. See #123.
+
 ## Test reporting
 
 `dorny/test-reporter@v3` consumes the TRX output from `dotnet test --logger trx` and surfaces failed tests in the PR check. The Windows leg runs the solution in one go; the Linux leg enumerates test projects and skips Windows-only / Linux-only ones by name (`*.Tests.Windows.*`, `*.Tests.Linux.*`) — see TESTING for the convention:
 
 ```yaml
 - name: Test (cross-platform leg)
+  id: test_xplat
   if: runner.os == 'Linux'
   shell: bash
   run: |
@@ -74,12 +92,13 @@ The Linux leg builds only `net10.0`. The Windows leg builds both `net10.0` and `
     done
 
 - name: Test (full leg)
+  id: test_full
   if: runner.os == 'Windows'
   run: dotnet test --configuration Release --no-build --filter "${{ inputs.category-filter }}" --logger "trx;LogFileName=test-results.trx"
 
 - name: Test report
   uses: dorny/test-reporter@v3
-  if: always()
+  if: ${{ always() && (steps.test_xplat.outcome != 'skipped' || steps.test_full.outcome != 'skipped') }}
   with:
     name: Tests (${{ matrix.os }})
     path: '**/test-results.trx'
@@ -89,7 +108,7 @@ The Linux leg builds only `net10.0`. The Windows leg builds both `net10.0` and `
 
 Why the Linux leg loops: vstest cannot filter Windows-only-TFM assemblies via `--framework net10.0` at solution scope — given a `<App>.Tests.Windows` project that only targets `net10.0-windows`, the runner tries to load a `net10.0` output that does not exist and exits non-zero. The naming convention (TESTING) lets the workflow exclude those projects at the project layer instead.
 
-`if: always()` so failed tests still produce a report. `use-actions-summary: 'false'` opts back into the legacy Check Run sink — v3's default writes to `$GITHUB_STEP_SUMMARY` instead, which silently drops the per-OS Tests gate at PR level.
+The `Test report` step keys off the test step's own `outcome` (via the `id: test_xplat` / `id: test_full` handles), not the mere presence of a `.trx`. It runs whenever the OS-relevant test step actually executed — success or failure, so genuine test failures are still reported — and skips only when **both** test steps were skipped, i.e. an upstream failure (e.g. Build) aborted the run before any test ran. That keeps a genuinely skipped/aborted run distinguishable from "tests ran and reported nothing", so a real upstream red is no longer masked by the reporter's own "No test report files were found" failure (#123). `always()` rather than `!cancelled()` preserves the prior on-cancellation behaviour; a status check function is still present, so the implicit `success()` is disabled and a *failing* Test step still produces its report. `use-actions-summary: 'false'` opts back into the legacy Check Run sink — v3's default writes to `$GITHUB_STEP_SUMMARY` instead, which silently drops the per-OS Tests gate at PR level.
 
 ## Hardware-test exclusion
 

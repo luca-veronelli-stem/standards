@@ -62,4 +62,19 @@ foreach ($d in $docs) {
 }
 Write-Host "  ok: $($docs.Count) standards docs"
 
+Write-Host '== gate: ticket #123 invariants =='
+# Get-Content -Raw resolves against $PWD; [IO.File]::ReadAllText would use the
+# stale .NET CurrentDirectory and silently read the wrong worktree.
+$ci = Get-Content -Raw '.github/workflows/dotnet-ci.yml'
+# Both actions/cache@v5 steps must be non-fatal so a restore flake cannot skip
+# Restore/Build/Test (a skipped step's implicit success() gates downstream steps).
+$coe = ([regex]::Matches($ci, '(?m)^\s*continue-on-error:\s*true\s*$')).Count
+if ($coe -lt 2) { throw "expected continue-on-error: true on both cache steps; found $coe" }
+# Test report must key off the test step's own outcome, not the mere presence
+# of a .trx, so a skipped test run is distinguishable from 'reported nothing'.
+if ($ci -notmatch 'steps\.test_xplat\.outcome' -or $ci -notmatch 'steps\.test_full\.outcome') {
+    throw 'Test report if: must reference steps.test_xplat.outcome and steps.test_full.outcome'
+}
+Write-Host '  ok: cache steps non-fatal; test report gated on test outcome'
+
 Write-Host 'gate: PASS'
