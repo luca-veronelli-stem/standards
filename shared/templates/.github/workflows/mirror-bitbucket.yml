@@ -7,6 +7,7 @@ name: Mirror to Bitbucket
 on:
   push:
     branches: [main]
+    tags: ['v*.*.*']
 
 concurrency:
   group: mirror-bitbucket-${{ github.ref }}

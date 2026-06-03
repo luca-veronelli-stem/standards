@@ -1,6 +1,8 @@
 # Reusable mirror workflow shipped from luca-veronelli-stem/standards.
 # Adopted repos call this from a thin stub that supplies their Bitbucket
 # slug (e.g. stem-fw/stem-device-manager) and the BITBUCKET_SSH_KEY secret.
+# The stub fires on both `main` branch pushes and version-tag pushes; this
+# body branches on github.ref_type so release tags reach the mirror.
 # See shared/standards/CI.md and the dual-remote rule for context.
 
 name: mirror-bitbucket (reusable)
@@ -22,7 +24,7 @@ permissions:
 
 jobs:
   mirror:
-    name: Push main to Bitbucket
+    name: Mirror commits and tags to Bitbucket
     runs-on: ubuntu-latest
 
     steps:
@@ -39,9 +41,23 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -t rsa,ed25519 bitbucket.org >> ~/.ssh/known_hosts
 
-      - name: Fast-forward bitbucket/main
+      - name: Add Bitbucket remote
         env:
           BITBUCKET_REPO: ${{ inputs.bitbucket-repo }}
-        run: |
-          git remote add bitbucket "git@bitbucket.org:${BITBUCKET_REPO}.git"
-          git push bitbucket HEAD:refs/heads/main
+        run: git remote add bitbucket "git@bitbucket.org:${BITBUCKET_REPO}.git"
+
+      # Branch push to main: mirror the commit plus the annotated tags
+      # reachable from it. --follow-tags carries annotated tags missing from
+      # the remote and skips lightweight tags by design.
+      - name: Mirror main and reachable annotated tags
+        if: github.ref_type == 'branch'
+        run: git push --follow-tags bitbucket HEAD:refs/heads/main
+
+      # Tag push: mirror only the pushed tag ref. Pushing HEAD:refs/heads/main
+      # from a detached tag checkout would force bitbucket/main back to the
+      # tagged commit, so the main ref is deliberately left untouched here.
+      - name: Mirror pushed tag
+        if: github.ref_type == 'tag'
+        env:
+          REF: ${{ github.ref }}
+        run: git push bitbucket "$REF:$REF"
