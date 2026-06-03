@@ -14,6 +14,11 @@ The version number is the git tag (`v1.0.0`, `v1.1.0`, …). There is no version
 
 Historical entries from `v1.0.0` through `v1.3.3` were written while this repo was bundled with the agent-config under the name `llm-settings`. From this point forward `standards` is scoped to the STEM standards alone; the agent-config wiring lives in [`luca-veronelli-stem/llm-settings`](https://github.com/luca-veronelli-stem/llm-settings) (unversioned, HEAD-only).
 
+## [1.14.1] - 2026-06-03
+
+### Changed
+- `.github/workflows/dotnet-ci.yml`, `release-archetype-a.yml`, `release-archetype-b.yml`: bump the `actions/setup-dotnet` pin from `@v5.1.0` to `@v5.3.0` (Dependabot, `gha-minor-and-patch` group — [#121](https://github.com/luca-veronelli-stem/standards/pull/121)). Routine GHA-pin currency on the reusable workflows; it propagates to adopted repos on their next CI/release run via the `@vX.Y.Z` reusable-workflow pin, with no per-repo PR. The pin stays a tag (not a raw SHA) per the v1.9.1 supply-chain posture so the bump remains observable to Dependabot. No contract change — patch.
+
 ## [1.14.0] - 2026-06-03
 
 ### Fixed
