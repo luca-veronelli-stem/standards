@@ -132,6 +132,21 @@ Per-repo adoption PR (`chore: bump standards to v1.11.0`):
 
 No source-code action required at adoption time. The first observable effect lands on the repo's next weekly Dependabot run: a major Avalonia (or any other group member's major) arrives as its own PR instead of poisoning a grouped bundle, and FuncUI bumps arrive separately from Avalonia-runtime bumps. To decline a specific major, comment `@dependabot ignore this major version` on the standalone PR (a per-repo decision — the template intentionally ships no `ignore` entries). Adopters whose `.github/dependabot.yml` has been hand-customised hit the local-edit guard and need `-Force` or a hand-merge (per the Pitfalls section).
 
+## Rollout phase for v1.14.0 — mirror-bitbucket tag mirroring
+
+`v1.14.0` fixes the reusable `mirror-bitbucket.yml` so version tags reach the Bitbucket mirror. Pre-fix it triggered only on `main` branch pushes and pushed a single explicit refspec (`git push bitbucket HEAD:refs/heads/main`), which carries no tags — release/version tags never reached the mirror. The caller stub gains `on.push.tags: ['v*.*.*']`, and the reusable body branches on `github.ref_type`: a `main` push runs `git push --follow-tags bitbucket HEAD:refs/heads/main` (commit + reachable annotated tags), and a tag push runs `git push bitbucket "$REF:$REF"` (only the pushed tag, never touching `bitbucket/main`). Closes [#122](https://github.com/luca-veronelli-stem/standards/issues/122). It is a minor bump — backward-compatible at the caller surface: the new trigger is additive and nothing previously mirrored stops mirroring — so adoption is opt-in per repo and can happen in any order.
+
+Per-repo adoption PR (`chore: bump standards to v1.14.0`):
+
+1. Re-run `eng/apply-repo-standard.ps1 -StandardVersion v1.14.0`. The diff is the regenerated `.github/workflows/mirror-bitbucket.yml` stub — the new `on.push.tags` trigger plus the `uses:` pin bump to `@v1.14.0`. Hand-customised mirror stubs hit the local-edit guard and need `-Force` or a hand-merge (per the Pitfalls section). No source-code change.
+2. Bump the per-repo `CLAUDE.md` `**Standard version:**` line to `v1.14.0`.
+3. Update `state/repos.md` to reflect the bump.
+4. Single-commit PR.
+
+First observable effect after the bump: the repo's next push to `main` backfills every annotated tag reachable from `main` that the mirror is missing (`--follow-tags`), and subsequent `v*.*.*` tag pushes mirror immediately via the tag-push trigger. Lightweight or unreachable tags are not carried by `--follow-tags` — a repo that needs them mirrored runs a one-time `git push git@bitbucket.org:stem-fw/<repo>.git --tags` (see CI.md → "Mirror workflow"). Skip the whole bump for personal-account repos with no Bitbucket mirror (`standards`, `llm-settings`).
+
+End-to-end verification (the [#122](https://github.com/luca-veronelli-stem/standards/issues/122) acceptance check, deferred to the first adopter): after `v1.14.0` is tagged and `button-panel-tester` is bumped to it, push a `v*.*.*` tag to `button-panel-tester` on GitHub and confirm the same tag appears on `bitbucket/button-panel-tester`.
+
 ## Rollout phase for v1.5.1 — F# runtime restoration, greenfield scaffold, `lean/`-vs-`specs/` clarification
 
 `v1.5.1` ships three first-adopter gap fixes uncovered while bootstrapping `button-panel-tester` against `v1.5.0`:
