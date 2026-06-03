@@ -59,7 +59,14 @@ jobs:
           global-json-file: global.json
 
       - name: Cache NuGet packages
+        # The NuGet cache is an optimization, never a correctness gate: a
+        # transient restore/save error from the cache service must not skip
+        # Restore/Build/Test. continue-on-error keeps the step's *conclusion*
+        # at success(), so the downstream steps (which carry an implicit
+        # success()) still run; a real cache flake degrades to a cold restore,
+        # not a red main. See #123.
         uses: actions/cache@v5
+        continue-on-error: true
         with:
           path: ~/.nuget/packages
           key: ${{ runner.os }}-nuget-${{ hashFiles('**/Directory.Packages.props') }}
@@ -74,8 +81,13 @@ jobs:
       # See #84. The Lean toolchain is identical across OSes, so we don't
       # double the cache + build on the Windows leg for no signal.
       - name: Cache Lean toolchain
+        # Same #123 reasoning as the NuGet cache: this step sits before
+        # Restore/Build/Test on the Linux leg, so a transient elan-cache error
+        # would skip them too. A cache flake must degrade to a cold elan
+        # install, not a skipped Lake build.
         if: runner.os == 'Linux' && hashFiles('**/lean-toolchain') != ''
         uses: actions/cache@v5
+        continue-on-error: true
         with:
           path: ~/.elan
           key: ${{ runner.os }}-elan-${{ hashFiles('**/lean-toolchain') }}
@@ -121,6 +133,7 @@ jobs:
         run: dotnet build --configuration Release --no-restore
 
       - name: Test (cross-platform leg)
+        id: test_xplat
         if: runner.os == 'Linux'
         shell: bash
         run: |
@@ -134,12 +147,24 @@ jobs:
           done
 
       - name: Test (full leg)
+        id: test_full
         if: runner.os == 'Windows'
         run: dotnet test --configuration Release --no-build --filter "${{ inputs.category-filter }}" --logger "trx;LogFileName=test-results.trx"
 
       - name: Test report
         uses: dorny/test-reporter@v3
-        if: always()
+        # Key off the test step's own outcome, not the mere presence of a .trx
+        # (#123 item 3). Run whenever the OS-relevant test step actually
+        # executed -- success OR failure, so a .trx exists and genuine test
+        # failures are still reported -- and skip only when BOTH test steps
+        # were skipped, i.e. an upstream failure (e.g. Build) aborted the run
+        # before any test ran. That distinguishes "tests ran and reported
+        # nothing" from a skipped/aborted run, so a real upstream red is no
+        # longer masked by the reporter's own "No test report files were
+        # found" failure. always() (not !cancelled()) preserves the prior
+        # on-cancellation behaviour; the status function disables the implicit
+        # success() so a failing Test step still produces its report.
+        if: ${{ always() && (steps.test_xplat.outcome != 'skipped' || steps.test_full.outcome != 'skipped') }}
         with:
           name: Tests (${{ matrix.os }})
           path: '**/test-results.trx'
