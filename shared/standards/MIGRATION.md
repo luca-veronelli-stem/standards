@@ -132,6 +132,19 @@ Per-repo adoption PR (`chore: bump standards to v1.11.0`):
 
 No source-code action required at adoption time. The first observable effect lands on the repo's next weekly Dependabot run: a major Avalonia (or any other group member's major) arrives as its own PR instead of poisoning a grouped bundle, and FuncUI bumps arrive separately from Avalonia-runtime bumps. To decline a specific major, comment `@dependabot ignore this major version` on the standalone PR (a per-repo decision — the template intentionally ships no `ignore` entries). Adopters whose `.github/dependabot.yml` has been hand-customised hit the local-edit guard and need `-Force` or a hand-merge (per the Pitfalls section).
 
+## Rollout phase for v1.14.2 — cache-restore resilience
+
+`v1.14.2` fixes the reusable `dotnet-ci.yml` so a transient `actions/cache` restore flake can no longer skip Restore/Build/Test and red `main`: both `actions/cache@v5` steps gain `continue-on-error: true`, and the `Test report` step keys off the test step's own `outcome` rather than the mere presence of a `.trx` (see CI.md → "Cache restore is non-fatal" and "Test reporting", and [#123](https://github.com/luca-veronelli-stem/standards/issues/123)). The fix lives entirely in the reusable body, so there is no source-code or stub-shape change — a patch that restores intended behaviour.
+
+Per-repo adoption PR (`chore: bump standards to v1.14.2`):
+
+1. Re-run `eng/apply-repo-standard.ps1 -StandardVersion v1.14.2`. The only diff is the `uses: …/dotnet-ci.yml@…` pin in the `.github/workflows/ci.yml` stub bumping to `@v1.14.2`. No source-code change. A hand-customised `ci.yml` stub hits the local-edit guard and needs `-Force` or a hand-merge (per the Pitfalls section).
+2. Bump the per-repo `CLAUDE.md` `**Standard version:**` line to `v1.14.2`.
+3. Update `state/repos.md` to reflect the bump.
+4. Single-commit PR.
+
+The fix is silent in steady state — it only changes behaviour the next time the runner's cache service hiccups, where the pre-fix workflow would have skipped Build/Test and failed `dorny/test-reporter` with "No test report files were found". Consumer side tracked by [`button-panel-tester#162`](https://github.com/luca-veronelli-stem/button-panel-tester/issues/162).
+
 ## Rollout phase for v1.14.0 — mirror-bitbucket tag mirroring
 
 `v1.14.0` fixes the reusable `mirror-bitbucket.yml` so version tags reach the Bitbucket mirror. Pre-fix it triggered only on `main` branch pushes and pushed a single explicit refspec (`git push bitbucket HEAD:refs/heads/main`), which carries no tags — release/version tags never reached the mirror. The caller stub gains `on.push.tags: ['v*.*.*']`, and the reusable body branches on `github.ref_type`: a `main` push runs `git push --follow-tags bitbucket HEAD:refs/heads/main` (commit + reachable annotated tags), and a tag push runs `git push bitbucket "$REF:$REF"` (only the pushed tag, never touching `bitbucket/main`). Closes [#122](https://github.com/luca-veronelli-stem/standards/issues/122). It is a minor bump — backward-compatible at the caller surface: the new trigger is additive and nothing previously mirrored stops mirroring — so adoption is opt-in per repo and can happen in any order.
