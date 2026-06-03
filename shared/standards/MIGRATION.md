@@ -132,6 +132,19 @@ Per-repo adoption PR (`chore: bump standards to v1.11.0`):
 
 No source-code action required at adoption time. The first observable effect lands on the repo's next weekly Dependabot run: a major Avalonia (or any other group member's major) arrives as its own PR instead of poisoning a grouped bundle, and FuncUI bumps arrive separately from Avalonia-runtime bumps. To decline a specific major, comment `@dependabot ignore this major version` on the standalone PR (a per-repo decision — the template intentionally ships no `ignore` entries). Adopters whose `.github/dependabot.yml` has been hand-customised hit the local-edit guard and need `-Force` or a hand-merge (per the Pitfalls section).
 
+## Rollout phase for v1.15.0 — unattended-only test suites
+
+`v1.15.0` adds an **Unattended-only test suites** principle to [`TESTING.md`](./TESTING.md): the `tests/` project holds only tests that run to completion with no human intervention. A human-in-the-loop test (press a button, unplug a cable, observe a screen) must not sit in the suite as a `Skip`-by-default case — resolve it by automating the human away with a fixture, demoting it to a runbook manual step, or (the one exception) keeping it as an **attended, env-gated** `[<ManualHardwareFact>]` that is dormant in unattended runs yet runnable on demand with no source edit. The `[<HardwareFact>]` / `[<ManualHardwareFact>]` env-gate attributes are the reference implementation, originating in [`button-panel-tester#142`](https://github.com/luca-veronelli-stem/button-panel-tester/issues/142). Closes [#126](https://github.com/luca-veronelli-stem/standards/issues/126). It is a minor bump — additive guidance to an existing standard, nothing previously compliant becomes non-compliant on re-roll (standards docs are advisory, not analyzer-enforced — see "Choosing the bump level") — so adoption is opt-in per repo and can happen in any order. TESTING's stability marker stays at `v1.0.0`.
+
+Per-repo adoption PR (`chore: bump standards to v1.15.0`):
+
+1. Re-run `eng/apply-repo-standard.ps1 -StandardVersion v1.15.0`. The diff is the refreshed `docs/Standards/TESTING.md` inline copy plus the version stamps the rollout refreshes (`docs/Standards/README.md` index, `CLAUDE.md`'s `**Standard version:**` line, the top-level `README.md`). No template, workflow, or rollout-script change; the standards count is unchanged (TESTING already exists), so the dynamic count assertion in `eng/tests/Apply-RepoStandard.Tests.ps1` is unaffected.
+2. Bump the per-repo `CLAUDE.md` `**Standard version:**` line to `v1.15.0`.
+3. Update `state/repos.md` to reflect the bump.
+4. Single-commit PR.
+
+No source-code action required at adoption time. Adopters carrying a `[<Fact(Skip = "Manual …")>]` human-in-the-loop test should resolve it per the new principle in a follow-up PR — same shape as the v1.10.0 note about removing `Skip = "...#NNN"` hardware workarounds. `button-panel-tester` is the first such cleanup: the `PhysicalUnplug…` deletion (its logic already covered by a fake-driven unit test) plus the `PhysicalReplug…` re-gate to `[<ManualHardwareFact>]` that motivated this principle (see [#142](https://github.com/luca-veronelli-stem/button-panel-tester/issues/142)).
+
 ## Rollout phase for v1.14.2 — cache-restore resilience
 
 `v1.14.2` fixes the reusable `dotnet-ci.yml` so a transient `actions/cache` restore flake can no longer skip Restore/Build/Test and red `main`: both `actions/cache@v5` steps gain `continue-on-error: true`, and the `Test report` step keys off the test step's own `outcome` rather than the mere presence of a `.trx` (see CI.md → "Cache restore is non-fatal" and "Test reporting", and [#123](https://github.com/luca-veronelli-stem/standards/issues/123)). The fix lives entirely in the reusable body, so there is no source-code or stub-shape change — a patch that restores intended behaviour.
