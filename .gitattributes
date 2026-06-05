@@ -3,3 +3,4 @@
 # SHA256 in $noSubstituteExtensions' copy path stays stable across machines.
 *.svg binary
 *.pdf binary
+*.ai binary
