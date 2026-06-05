@@ -76,8 +76,8 @@
 
 .EXAMPLE
     # First-time bootstrap
-    & 'C:\Users\LucaV\Source\Repos\standards\eng\apply-repo-standard.ps1' `
-        -RepoPath C:\Users\LucaV\Source\Repos\stem-device-manager `
+    & 'C:\Users\LucaV\Source\Repos\standards\main\eng\apply-repo-standard.ps1' `
+        -RepoPath C:\Users\LucaV\Source\Repos\stem-device-manager\main `
         -App DeviceManager `
         -Archetype A `
         -Owner luca-veronelli `
@@ -87,8 +87,8 @@
 
 .EXAMPLE
     # Subsequent bump -- only StandardVersion needs to change.
-    & 'C:\Users\LucaV\Source\Repos\standards\eng\apply-repo-standard.ps1' `
-        -RepoPath C:\Users\LucaV\Source\Repos\stem-device-manager `
+    & 'C:\Users\LucaV\Source\Repos\standards\main\eng\apply-repo-standard.ps1' `
+        -RepoPath C:\Users\LucaV\Source\Repos\stem-device-manager\main `
         -StandardVersion v1.1.0 `
         -Minimal
 #>

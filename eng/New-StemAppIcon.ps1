@@ -37,7 +37,7 @@
 
 .EXAMPLE
     # Regenerate the bundled positive app icon from its SVG master.
-    & 'C:\Users\LucaV\Source\Repos\standards\eng\New-StemAppIcon.ps1' `
+    & 'C:\Users\LucaV\Source\Repos\standards\main\eng\New-StemAppIcon.ps1' `
         -SvgPath shared/templates/archetypes/A/src/`{`{App`}`}.GUI/Resources/branding/app-icons/stem-app-icon-positive.svg `
         -IcoPath shared/templates/archetypes/A/src/`{`{App`}`}.GUI/Resources/branding/app-icons/stem-app-icon-positive.ico
 
