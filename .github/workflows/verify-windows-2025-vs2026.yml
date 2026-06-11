@@ -1,0 +1,169 @@
+# TEMPORARY — verification for #134, never merges to main.
+#
+# Proves this repo's static-checks job runs green on the dated
+# `windows-2025-vs2026` image BEFORE GitHub redirects `windows-latest` to it
+# (June 15, 2026). Same steps as ci.yml's static-checks job; only `runs-on`
+# differs. Dropped from the branch in a dedicated commit before the PR is
+# marked ready.
+name: verify-windows-2025-vs2026 (temporary, #134)
+
+on:
+  push:
+    branches: [docs/134-runner-image-policy]
+  workflow_dispatch:
+
+concurrency:
+  group: verify-w2025vs2026-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  static-checks:
+    name: Static checks (windows-2025-vs2026)
+    runs-on: windows-2025-vs2026
+    steps:
+      - name: Print runner image
+        shell: pwsh
+        run: Write-Host "ImageOS=$env:ImageOS ImageVersion=$env:ImageVersion"
+
+      - uses: actions/checkout@v6
+        with:
+          fetch-tags: true
+          fetch-depth: 0
+
+      - name: PSScriptAnalyzer
+        shell: pwsh
+        run: |
+          Install-Module PSScriptAnalyzer -Force -Scope CurrentUser -ErrorAction Stop
+          $files = Get-ChildItem -Recurse -Include *.ps1 -File `
+            | Where-Object { $_.FullName -notmatch '\\\.git\\' }
+          if (-not $files) { Write-Host 'No .ps1 files found.'; exit 0 }
+          $findings = $files | ForEach-Object {
+            Invoke-ScriptAnalyzer -Path $_.FullName -Settings ./PSScriptAnalyzerSettings.psd1
+          }
+          if ($findings) {
+            $findings | Format-Table -AutoSize | Out-String | Write-Host
+            Write-Error "PSScriptAnalyzer found $(@($findings).Count) issue(s)."
+            exit 1
+          }
+          Write-Host 'PSScriptAnalyzer: clean.'
+
+      - name: Templates parse
+        shell: pwsh
+        run: |
+          Install-Module powershell-yaml -Force -Scope CurrentUser -ErrorAction Stop
+          Import-Module powershell-yaml
+
+          $placeholders = @{
+            '{{App}}'             = 'TestApp'
+            '{{Repo}}'            = 'test-repo'
+            '{{Archetype}}'       = 'A'
+            '{{Owner}}'           = 'test-owner'
+            '{{LucaUser}}'        = 'test-luca'
+            '{{StandardVersion}}' = 'v0.0.0'
+            '{{Author}}'          = 'Test Author'
+            '{{Description}}'     = 'test description'
+            '{{Year}}'            = '2026'
+          }
+          function Expand-Placeholder {
+            param([string]$Text)
+            foreach ($k in $placeholders.Keys) { $Text = $Text.Replace($k, $placeholders[$k]) }
+            return $Text
+          }
+
+          $failed = $false
+          $files  = Get-ChildItem -Path shared/templates -Recurse -File `
+            -Include *.props, *.json, *.yml, *.yaml
+          foreach ($f in $files) {
+            $rel     = $f.FullName.Substring((Resolve-Path .).Path.Length + 1).Replace('\','/')
+            $content = Expand-Placeholder -Text ([System.IO.File]::ReadAllText($f.FullName))
+            try {
+              switch ($f.Extension.ToLowerInvariant()) {
+                '.props' { [void][xml]$content }
+                '.json'  { [void](ConvertFrom-Json -InputObject $content -ErrorAction Stop) }
+                '.yml'   { [void](ConvertFrom-Yaml -Yaml $content) }
+                '.yaml'  { [void](ConvertFrom-Yaml -Yaml $content) }
+              }
+              Write-Host "ok: $rel"
+            } catch {
+              Write-Host "::error file=$rel::$($_.Exception.Message)"
+              $failed = $true
+            }
+          }
+          if ($failed) { exit 1 }
+          Write-Host "templates parse: clean ($($files.Count) files)."
+
+      - name: Standards-doc structure
+        shell: pwsh
+        run: |
+          $failed = $false
+          $files  = Get-ChildItem -Path shared/standards -Filter *.md -File
+          foreach ($f in $files) {
+            $rel  = "shared/standards/$($f.Name)"
+            $name = [System.IO.Path]::GetFileNameWithoutExtension($f.Name)
+            $lines = Get-Content $f.FullName
+            $fileFailed = $false
+            if ($lines.Count -lt 3) {
+              Write-Host "::error file=$rel::file too short (expected H1 + Stability line)"
+              $fileFailed = $true
+            } else {
+              $expectedH1 = "# Standard: $name"
+              if ($lines[0].TrimEnd() -ne $expectedH1) {
+                Write-Host "::error file=$rel,line=1::line 1 must be '$expectedH1', got '$($lines[0])'"
+                $fileFailed = $true
+              }
+              $head = $lines | Select-Object -First 10
+              if (-not ($head -match '^> \*\*Stability:\*\*')) {
+                Write-Host "::error file=$rel::missing '> **Stability:** ...' in first 10 lines"
+                $fileFailed = $true
+              }
+            }
+            if ($fileFailed) { $failed = $true } else { Write-Host "ok: $rel" }
+          }
+          if ($failed) { exit 1 }
+          Write-Host "standards-doc structure: clean ($($files.Count) docs)."
+
+      - name: Cross-reference (registry vs. files)
+        shell: pwsh
+        run: |
+          $script  = Get-Content eng/apply-repo-standard.ps1 -Raw
+          $pattern = '(?ms)\$standardPurpose\s*=\s*\[ordered\]@\{(.*?)^\s*\}'
+          $m = [regex]::Match($script, $pattern)
+          if (-not $m.Success) {
+            Write-Host "::error file=eng/apply-repo-standard.ps1::could not locate `$standardPurpose hashtable"
+            exit 1
+          }
+          $referenced = [regex]::Matches($m.Groups[1].Value, "(?m)^\s*'([A-Z_]+)'") `
+            | ForEach-Object { $_.Groups[1].Value }
+          $onDisk = Get-ChildItem -Path shared/standards -Filter *.md -File `
+            | ForEach-Object { [System.IO.Path]::GetFileNameWithoutExtension($_.Name) }
+
+          $failed = $false
+          foreach ($k in $referenced) {
+            if ($k -notin $onDisk) {
+              Write-Host "::error file=eng/apply-repo-standard.ps1::registry entry '$k' has no shared/standards/$k.md"
+              $failed = $true
+            }
+          }
+          foreach ($f in $onDisk) {
+            if ($f -notin $referenced) {
+              Write-Host "::error file=shared/standards/$f.md::on-disk standard not registered in `$standardPurpose (eng/apply-repo-standard.ps1)"
+              $failed = $true
+            }
+          }
+          if ($failed) { exit 1 }
+          Write-Host "cross-reference: clean ($($referenced.Count) registry entries match $($onDisk.Count) on-disk files)."
+
+      - name: Pester smoke (apply-repo-standard.ps1)
+        shell: pwsh
+        run: |
+          Install-Module Pester -Force -SkipPublisherCheck `
+            -Scope CurrentUser -MinimumVersion 5.0.0 -ErrorAction Stop
+          Import-Module Pester
+          $cfg = New-PesterConfiguration
+          $cfg.Run.Path     = 'eng/tests'
+          $cfg.Output.Verbosity = 'Detailed'
+          $cfg.Run.Exit     = $true
+          Invoke-Pester -Configuration $cfg
