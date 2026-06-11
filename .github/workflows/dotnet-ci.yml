@@ -37,6 +37,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # Floating aliases on purpose; do not pin dated images. Required
+        # status checks in adopted repos are named after these values
+        # (`build (windows-latest)`), so renaming them is a fleet-wide
+        # branch-protection migration. See shared/standards/CI.md ->
+        # "Runner-image policy (float on *-latest)" (#134).
         os: [ubuntu-latest, windows-latest]
 
     steps:

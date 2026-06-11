@@ -28,6 +28,9 @@ permissions:
 jobs:
   release:
     name: Release ${{ github.ref_name }}
+    # Floating alias on purpose; do not pin dated images. See
+    # shared/standards/CI.md -> "Runner-image policy (float on *-latest)"
+    # (#134).
     runs-on: windows-latest
 
     steps:

@@ -4,6 +4,12 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Manual dispatch is the verification instrument for runner-image alias
+  # redirects: when GitHub announces one (e.g. windows-latest ->
+  # windows-2025-vs2026, June 15, 2026), dispatch a run around the flip date
+  # and check the `Set up job` log's Runner Image line. See
+  # shared/standards/CI.md -> "Runner-image policy (float on *-latest)".
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -15,6 +21,9 @@ permissions:
 jobs:
   static-checks:
     name: Static checks
+    # Floating alias on purpose; do not pin dated images. See
+    # shared/standards/CI.md -> "Runner-image policy (float on *-latest)"
+    # (#134).
     runs-on: windows-latest
     steps:
       # `fetch-tags: true` so the Pester -Minimal suite (which exercises the
