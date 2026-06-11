@@ -28,6 +28,8 @@ if ($refs) { $failures += "tracked files still reference settings.local.json: $r
 
 if ($failures.Count -gt 0) {
     $failures | ForEach-Object { Write-Host "FAIL: $_" }
-    Write-Error "gate.ps1: $($failures.Count) check(s) failed"
+    Write-Host "gate.ps1: $($failures.Count) check(s) failed"
+    exit 1
 }
 Write-Host 'gate.ps1: all checks green'
+exit 0
