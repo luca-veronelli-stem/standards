@@ -8,7 +8,8 @@ The repo itself also declares the same version in its top-level `CLAUDE.md` (see
 
 | Repo | Archetype | Standard version | Last bumped | Notes |
 | --- | --- | --- | --- | --- |
-| `stem-device-manager` | A | — | — | not yet adopted |
+| `stem-device-manager` | A | — | — | frozen as-is; superseded by greenfield `device-updater` (see row below) |
+| `device-updater` | B | v1.15.1 | 2026-06-11 | greenfield firmware-update successor to `stem-device-manager`; first archetype B adopter |
 | `stem-communication` | B | — | — | not yet adopted; rename + sub-package split planned |
 | `stem-production-tracker` | A | — | — | not yet adopted |
 | `stem-button-panel-tester` | A | v1.3.2 | 2026-05-07 | bumped to v1.3.2 via the seed-then-restore recipe (#42 / #45); greenfield successor: `button-panel-tester` (see row below) |
